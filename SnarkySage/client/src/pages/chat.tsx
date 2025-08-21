@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -297,7 +298,7 @@ export default function Chat() {
     } finally {
       setIsTyping(false);
     }
-  };</old_str></old_str>
+  };
 
   return (
     <>
