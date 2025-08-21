@@ -124,10 +124,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle image generation requests
       if (content.startsWith('[IMAGE_GENERATION]')) {
         const prompt = content.replace('[IMAGE_GENERATION]', '').trim();
-        
+
         try {
           const imageUrl = await generateImage(prompt);
-          
+
           // Create user message
           const userMessage = await storage.createChatMessage({
             sessionId,
@@ -282,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Analyze the uploaded image
       const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
       let imageAnalysis = '';
-      
+
       try {
         imageAnalysis = await analyzeImage(imageBase64);
       } catch (error) {
@@ -299,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate AI response with image context
       const contextualPrompt = formatImageAnalysisForAI(imageAnalysis, content);
-      
+
       let aiResponse = '';
       try {
         aiResponse = await generateSarcasticResponse(contextualPrompt, userLocation);

@@ -18,7 +18,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd SnarkySage && npm install && NODE_ENV=development npx tsx server/index.ts"
+args = "cd SnarkySage && npm install && npm run dev"
 
 [[ports]]
 localPort = 5000
