@@ -245,8 +245,12 @@ export default function Chat() {
                   }`}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Bot className="text-white h-4 w-4" />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <img 
+                        src="/sai-kaki-logo.svg" 
+                        alt="Sai Kaki" 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   )}
                   
@@ -304,8 +308,12 @@ export default function Chat() {
             
             {isTyping && (
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="text-white h-4 w-4" />
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <img 
+                    src="/sai-kaki-logo.svg" 
+                    alt="Sai Kaki" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl">
                   <div className="flex space-x-1">
