@@ -87,7 +87,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+      res.setHeader('Access-Control-Allow-Headers', 'Cache-Control, Content-Type');
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      // Send initial connection confirmation
+      res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+      let responseComplete = false;
+
+      // Handle client disconnect
+      req.on('close', () => {
+        responseComplete = true;
+        console.log('Client disconnected from stream');
+      });
 
       // Filter personal information from user message
       const filteredContent = await filterPersonalInformation(content);
@@ -101,10 +113,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send user message immediately
-      res.write(`data: ${JSON.stringify({
-        type: 'userMessage',
-        message: userMessage
-      })}\n\n`);
+      if (!responseComplete) {
+        res.write(`data: ${JSON.stringify({
+          type: 'userMessage',
+          message: userMessage
+        })}\n\n`);
+      }
 
       // Get conversation history for context
       const messages = await storage.getSessionMessages(sessionId);
@@ -128,7 +142,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userIP,
           userLocation,
           (chunk: string) => {
-            fullAiResponse += chunk;
+            if (responseComplete) return;
+            
             try {
               res.write(`data: ${JSON.stringify({
                 type: 'aiChunk',
@@ -137,15 +152,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               })}\n\n`);
             } catch (writeError) {
               console.error('Error writing SSE chunk:', writeError);
+              responseComplete = true;
             }
           }
         );
+
+        if (responseComplete) return;
 
         // Enhance with web data if needed
         const enhancedResponse = await enhanceResponseWithWebData(filteredContent, fullAiResponse);
 
         // If enhanced, send the additional content
-        if (enhancedResponse !== fullAiResponse) {
+        if (enhancedResponse !== fullAiResponse && !responseComplete) {
           const additionalContent = enhancedResponse.replace(fullAiResponse, '');
           res.write(`data: ${JSON.stringify({
             type: 'aiChunk',
@@ -168,39 +186,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Send final message with database ID
-        res.write(`data: ${JSON.stringify({
-          type: 'aiComplete',
-          message: aiMessage,
-          tempId: aiMessageId
-        })}\n\n`);
+        if (!responseComplete) {
+          res.write(`data: ${JSON.stringify({
+            type: 'aiComplete',
+            message: aiMessage,
+            tempId: aiMessageId
+          })}\n\n`);
+        }
 
         // Update session timestamp
         await storage.updateChatSession(sessionId, {});
 
+        responseComplete = true;
+        res.end();
+
       } catch (error) {
         console.error('Error in streaming:', error);
 
-        // Create error message in database
-        const errorMessage = await storage.createChatMessage({
-          sessionId,
-          role: "assistant",
-          content: "Oops! My circuits are having a moment. Even I can't fix that mess right now. Try again, genius! 🤖💥",
-          metadata: { error: true, userMessageId: userMessage.id }
-        });
+        if (!responseComplete) {
+          // Create error message in database
+          const errorMessage = await storage.createChatMessage({
+            sessionId,
+            role: "assistant",
+            content: "Oops! My circuits are having a moment. Even I can't fix that mess right now. Try again, genius! 🤖💥",
+            metadata: { error: true, userMessageId: userMessage.id }
+          });
 
-        res.write(`data: ${JSON.stringify({
-          type: 'aiComplete',
-          message: errorMessage,
-          tempId: aiMessageId
-        })}\n\n`);
+          res.write(`data: ${JSON.stringify({
+            type: 'aiComplete',
+            message: errorMessage,
+            tempId: aiMessageId
+          })}\n\n`);
 
-        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-        res.end();
+          responseComplete = true;
+          res.end();
+        }
       }
     } catch (error) {
       console.error("Stream chat error:", error);
 
       try {
+        if (!res.headersSent) {
+          res.setHeader('Content-Type', 'text/event-stream');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Connection', 'keep-alive');
+        }
+        
         res.write(`data: ${JSON.stringify({
           type: 'error',
           error: 'Failed to process streaming message'
@@ -208,7 +239,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.end();
       } catch (writeError) {
         console.error("Failed to write error response:", writeError);
-        res.status(500).json({ error: "Failed to process streaming message" });
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to process streaming message" });
+        }
       }
     }
   });

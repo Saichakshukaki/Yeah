@@ -101,69 +101,119 @@ export default function Chat() {
         };
       }
       
-      // Start SSE connection for streaming
-      const eventSource = new EventSource(
-        `/api/chat/sessions/${currentSessionId}/messages/stream?${new URLSearchParams(requestBody)}`
-      );
-      
       return new Promise((resolve, reject) => {
-        let tempMessageId: string | null = null;
+        let isStreamComplete = false;
+        let fallbackExecuted = false;
         
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            
-            switch (data.type) {
-              case 'userMessage':
-                // User message saved, refresh messages
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-                });
-                break;
-                
-              case 'aiChunk':
-                tempMessageId = data.messageId;
-                setStreamingMessage(prev => ({
-                  id: data.messageId,
-                  role: 'assistant',
-                  content: (prev?.content || '') + data.chunk,
-                  isStreaming: true,
-                  createdAt: new Date()
-                }));
-                break;
-                
-              case 'aiComplete':
-                // AI message complete, update with final message from DB
-                setStreamingMessage(null);
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-                });
-                resolve(data.message);
-                break;
-                
-              case 'error':
-                setStreamingMessage(null);
-                queryClient.invalidateQueries({ 
-                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-                });
-                reject(new Error('AI response error'));
-                break;
-                
-              case 'done':
-                eventSource.close();
-                break;
-            }
-          } catch (error) {
-            console.error('SSE parsing error:', error);
+        // Send the POST request to start streaming
+        fetch(`/api/chat/sessions/${currentSessionId}/messages/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
           }
-        };
+          
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error('No response body reader');
+          }
+          
+          const decoder = new TextDecoder();
+          let buffer = '';
+          
+          function readStream() {
+            reader.read().then(({ done, value }) => {
+              if (done) {
+                if (!isStreamComplete && !fallbackExecuted) {
+                  executeFallback();
+                }
+                return;
+              }
+              
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') continue;
+                  
+                  try {
+                    const messageData = JSON.parse(data);
+                    
+                    switch (messageData.type) {
+                      case 'userMessage':
+                        // User message saved, refresh messages
+                        queryClient.invalidateQueries({ 
+                          queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                        });
+                        break;
+                        
+                      case 'aiChunk':
+                        setStreamingMessage(prev => ({
+                          id: messageData.messageId,
+                          role: 'assistant',
+                          content: (prev?.content || '') + messageData.chunk,
+                          isStreaming: true,
+                          createdAt: new Date()
+                        }));
+                        break;
+                        
+                      case 'aiComplete':
+                        isStreamComplete = true;
+                        setStreamingMessage(null);
+                        queryClient.invalidateQueries({ 
+                          queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                        });
+                        resolve(messageData.message);
+                        break;
+                        
+                      case 'error':
+                        isStreamComplete = true;
+                        setStreamingMessage(null);
+                        queryClient.invalidateQueries({ 
+                          queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                        });
+                        reject(new Error('AI response error'));
+                        break;
+                    }
+                  } catch (parseError) {
+                    console.error('Failed to parse SSE data:', parseError);
+                  }
+                }
+              }
+              
+              readStream();
+            }).catch(error => {
+              console.error('Stream reading error:', error);
+              if (!isStreamComplete && !fallbackExecuted) {
+                executeFallback();
+              }
+            });
+          }
+          
+          readStream();
+        })
+        .catch(error => {
+          console.error('Failed to start stream:', error);
+          if (!fallbackExecuted) {
+            executeFallback();
+          }
+        });
         
-        eventSource.onerror = (error) => {
-          console.error('SSE error:', error);
-          eventSource.close();
+        function executeFallback() {
+          if (fallbackExecuted) return;
+          fallbackExecuted = true;
+          
+          console.log('Falling back to regular API call');
           setStreamingMessage(null);
           
-          // Try to fallback to regular API call
           fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
             method: 'POST',
             headers: {
@@ -178,23 +228,10 @@ export default function Chat() {
             });
             resolve(data.aiMessage);
           })
-          .catch(() => {
+          .catch(fallbackError => {
             reject(new Error('Both streaming and regular API failed'));
           });
-        };
-        
-        // Send the actual POST request to start streaming
-        fetch(`/api/chat/sessions/${currentSessionId}/messages/stream`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        }).catch(error => {
-          console.error('Failed to start stream:', error);
-          eventSource.close();
-          reject(error);
-        });
+        }
       });
     },
     onMutate: () => {
