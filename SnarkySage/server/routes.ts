@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 For your "${prompt}" request, I'd suggest: "A photorealistic ${prompt}, high quality, detailed, professional photography" - that usually gets amazing results! 
 
-*Error details: ${errorMessage}*`;matoes! 🍅 
+*Error details: ${errorMessage}*
 
 Want to try again in a moment? Or I can help you craft an amazing description of what you want so you can try other free tools like:
 - DALL-E Mini (free online)
