@@ -157,7 +157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Free image generation failed:", error);
           const errorMessage = error.message || "Unknown error occurred";
           
-          aiMessageContent = `Well, that's embarrassing! 😅 Even the free image generators are giving me the cold shoulder today. They're probably overloaded with everyone wanting pictures of cats and tomatoes! 🍅 
+          aiMessageContent = `Well, that's embarrassing! 😅 My image generation circuits are having a moment, but don't worry - I've got multiple backup services running! Try again in a few seconds, or let me help you craft the perfect prompt for other free AI art tools like:
+
+🎨 **Free Alternatives:**
+- Bing Image Creator (powered by DALL-E 3)
+- Leonardo.ai (free tier)
+- Playground AI (free credits)
+- Stable Diffusion on Hugging Face
+
+For your "${prompt}" request, I'd suggest: "A photorealistic ${prompt}, high quality, detailed, professional photography" - that usually gets amazing results! 
+
+*Error details: ${errorMessage}*`;matoes! 🍅 
 
 Want to try again in a moment? Or I can help you craft an amazing description of what you want so you can try other free tools like:
 - DALL-E Mini (free online)
