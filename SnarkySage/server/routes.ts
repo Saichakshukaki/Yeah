@@ -126,9 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const prompt = content.replace('[IMAGE_GENERATION]', '').trim();
 
         try {
-          console.log(`Starting free image generation for: "${prompt}"`);
+          console.log(`Starting enhanced image generation for: "${prompt}"`);
           const imageUrl = await generateImage(prompt);
-          console.log('Free image generation successful');
+          console.log('Enhanced image generation successful');
 
           // Create user message
           const userMessage = await storage.createChatMessage({
@@ -138,7 +138,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Create AI message with generated image
-          aiMessageContent = `Here's your image for "${prompt}"! 🎨\n\n![Generated Image](${imageUrl})\n\nCreated using completely free services because, you know, I'm generous like that! 😏 Not bad for free art, right?`;
+          if (imageUrl.includes('unsplash.com')) {
+            aiMessageContent = `Here's a beautiful image for "${prompt}"! 📸\n\n![Generated Image](${imageUrl})\n\nI found this gorgeous photo that perfectly captures your request. Sometimes real photography beats AI art, don't you think? 😏✨`;
+          } else if (imageUrl.includes('svg')) {
+            aiMessageContent = `Here's your custom "${prompt}" artwork! 🎨\n\n![Generated Image](${imageUrl})\n\nI created this special vector art just for you when the other services were being difficult. It's got style, personality, and just the right amount of sass! 😎`;
+          } else {
+            aiMessageContent = `Here's your AI-generated image for "${prompt}"! 🎨\n\n![Generated Image](${imageUrl})\n\nCreated using state-of-the-art free AI services. Not bad for completely free art, right? I've got connections! 😏✨`;
+          }
+
           const aiMessage = await storage.createChatMessage({
             sessionId,
             role: "assistant",
@@ -154,27 +161,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           return res.json({ userMessage, aiMessage });
         } catch (error) {
-          console.error("Free image generation failed:", error);
+          console.error("Image generation completely failed:", error);
           const errorMessage = error.message || "Unknown error occurred";
           
-          aiMessageContent = `Well, that's embarrassing! 😅 My image generation circuits are having a moment, but don't worry - I've got multiple backup services running! Try again in a few seconds, or let me help you craft the perfect prompt for other free AI art tools like:
+          aiMessageContent = `Oops! 😅 Even my backup services are taking a coffee break. But hey, I can still help you create the perfect image prompt for other free AI art tools:
 
-🎨 **Free Alternatives:**
-- Bing Image Creator (powered by DALL-E 3)
-- Leonardo.ai (free tier)
-- Playground AI (free credits)
-- Stable Diffusion on Hugging Face
+🎨 **Working Free Alternatives:**
+- **Pollinations.ai** - Just go to pollinations.ai and enter your prompt
+- **Bing Image Creator** - Uses DALL-E 3, completely free with Microsoft account
+- **Leonardo.ai** - Free tier with high-quality results
+- **Playground AI** - Free credits for AI art generation
 
-For your "${prompt}" request, I'd suggest: "A photorealistic ${prompt}, high quality, detailed, professional photography" - that usually gets amazing results! 
+**Perfect prompt for "${prompt}":**
+"A high-quality, detailed ${prompt}, professional photography style, vibrant colors, sharp focus, beautiful lighting"
 
-*Error details: ${errorMessage}*
+Try that exact prompt in any of those services - I guarantee you'll get amazing results! 🎯
 
-Want to try again in a moment? Or I can help you craft an amazing description of what you want so you can try other free tools like:
-- DALL-E Mini (free online)
-- Stable Diffusion on Hugging Face
-- Bing Image Creator
+*Technical error: ${errorMessage}*
 
-Just describe your vision and I'll help make it prompt-perfect! 🎨`;
+Want me to craft an even more specific prompt for your vision? 🎨`;
 
           // Create user message
           const userMessage = await storage.createChatMessage({
@@ -183,7 +188,7 @@ Just describe your vision and I'll help make it prompt-perfect! 🎨`;
             content: `Generate an image: ${prompt}`,
           });
 
-          // Create AI message with error
+          // Create AI message with helpful alternatives
           const aiMessage = await storage.createChatMessage({
             sessionId,
             role: "assistant",
