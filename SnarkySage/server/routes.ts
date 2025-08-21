@@ -121,6 +121,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let processedContent = content;
       let aiMessageContent = '';
 
+      // Handle image generation requests
+      if (content.startsWith('[IMAGE_GENERATION]')) {
+        const prompt = content.replace('[IMAGE_GENERATION]', '').trim();
+        
+        try {
+          const imageUrl = await generateImage(prompt);
+          
+          // Create user message
+          const userMessage = await storage.createChatMessage({
+            sessionId,
+            role: "user",
+            content: `Generate an image: ${prompt}`,
+          });
+
+          // Create AI message with generated image
+          aiMessageContent = `Here's your generated image for "${prompt}":\n\n${imageUrl}`;
+          const aiMessage = await storage.createChatMessage({
+            sessionId,
+            role: "assistant",
+            content: aiMessageContent,
+          });
+
+          // Update session title if this is the first exchange
+          const messages = await storage.getSessionMessages(sessionId);
+          if (messages.length <= 2) {
+            const title = generateTitleFromMessage(prompt);
+            await storage.updateChatSession(sessionId, { title });
+          }
+
+          return res.json({ userMessage, aiMessage });
+        } catch (error) {
+          console.error("Image generation failed:", error);
+          aiMessageContent = "Sorry, my artistic talents are offline right now! Even Picasso had bad days. 🎨 Try again in a moment.";
+        }
+      }
+
       if (imageUrl) {
         try {
           const analysis = await analyzeImage(imageUrl);
@@ -210,8 +246,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const analysis = await analyzeImage(req.file.buffer.toString('base64'));
-      const formattedAnalysis = formatImageAnalysisForAI(analysis);
+      const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      const analysis = await analyzeImage(imageBase64);
+      const formattedAnalysis = formatImageAnalysisForAI(analysis, '');
       res.json({ analysis: formattedAnalysis });
     } catch (error) {
       console.error("Image upload and analysis failed:", error);
@@ -220,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Route to handle image generation
-  app.post("/api/chat/generate-image", async (req, res) => {
+  app.post("/api/generate-image", async (req, res) => {
     try {
       const { prompt } = z.object({ prompt: z.string().min(1) }).parse(req.body);
 
@@ -229,6 +266,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Image generation failed:", error);
       res.status(500).json({ error: 'Failed to generate image.' });
+    }
+  });
+
+  // Route to handle messages with images
+  app.post("/api/chat/sessions/:id/messages-with-image", upload.single('image'), async (req, res) => {
+    try {
+      const sessionId = req.params.id;
+      const { content, role, userLocation } = req.body;
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image file uploaded.' });
+      }
+
+      // Analyze the uploaded image
+      const imageBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      let imageAnalysis = '';
+      
+      try {
+        imageAnalysis = await analyzeImage(imageBase64);
+      } catch (error) {
+        console.error("Image analysis failed:", error);
+        imageAnalysis = "I can see an image, but I'm having trouble analyzing it right now.";
+      }
+
+      // Create user message with image context
+      const userMessage = await storage.createChatMessage({
+        sessionId,
+        role: "user",
+        content: `${content}\n\n[Image uploaded: ${imageAnalysis}]`,
+      });
+
+      // Generate AI response with image context
+      const contextualPrompt = formatImageAnalysisForAI(imageAnalysis, content);
+      
+      let aiResponse = '';
+      try {
+        aiResponse = await generateSarcasticResponse(contextualPrompt, userLocation);
+      } catch (error) {
+        console.error("AI response generation failed:", error);
+        aiResponse = "Well, I saw your image but my brain circuits are having a moment. That's embarrassing! 😅";
+      }
+
+      const aiMessage = await storage.createChatMessage({
+        sessionId,
+        role: "assistant", 
+        content: aiResponse,
+      });
+
+      // Update session title if this is the first message
+      const messages = await storage.getSessionMessages(sessionId);
+      if (messages.length <= 2) {
+        const title = generateTitleFromMessage(content);
+        await storage.updateChatSession(sessionId, { title });
+      }
+
+      res.json({ userMessage, aiMessage });
+    } catch (error) {
+      console.error("Message with image failed:", error);
+      res.status(500).json({ error: 'Failed to process message with image.' });
     }
   });
 

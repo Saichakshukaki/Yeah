@@ -4,12 +4,13 @@ import fetch from 'node-fetch';
 // Free image recognition using Hugging Face Inference API
 async function analyzeImageWithHuggingFace(imageBase64: string): Promise<string> {
   try {
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(imageBase64.split(',')[1], 'base64');
+    // Extract base64 data if it includes the data URL prefix
+    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const imageBuffer = Buffer.from(base64Data, 'base64');
     
     const models = [
-      'nlpconnect/vit-gpt2-image-captioning',
       'Salesforce/blip-image-captioning-base',
+      'nlpconnect/vit-gpt2-image-captioning',
       'microsoft/git-base-coco'
     ];
 
@@ -42,9 +43,12 @@ async function analyzeImageWithHuggingFace(imageBase64: string): Promise<string>
           if (typeof data === 'string') {
             return data;
           }
+        } else {
+          const errorText = await response.text();
+          console.log(`Model ${model} returned error: ${response.status} - ${errorText}`);
         }
       } catch (modelError) {
-        console.log(`Model ${model} failed, trying next...`);
+        console.log(`Model ${model} failed:`, modelError);
         continue;
       }
     }

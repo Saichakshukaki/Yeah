@@ -257,16 +257,36 @@ export default function Chat() {
       return;
     }
 
-    try {
-      const response = await apiRequest("POST", "/api/generate-image", {
-        prompt: messageInput.trim()
+    if (!currentSessionId) {
+      toast({
+        title: "Error",
+        description: "No active chat session",
+        variant: "destructive",
       });
-      const data = await response.json();
+      return;
+    }
+
+    try {
+      setIsTyping(true);
       
-      if (data.imageUrl) {
-        // Add the generated image as a message
-        setMessageInput(`Generated image: ${messageInput.trim()}`);
-        sendMessage();
+      // Send the image generation request as a regular message
+      const requestBody = {
+        content: `[IMAGE_GENERATION] ${messageInput.trim()}`,
+        role: "user"
+      };
+
+      const response = await apiRequest("POST", `/api/chat/sessions/${currentSessionId}/messages`, requestBody);
+      
+      if (response.ok) {
+        setMessageInput("");
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+        });
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/sessions"] 
+        });
+      } else {
+        throw new Error("Failed to generate image");
       }
     } catch (error) {
       toast({
@@ -274,8 +294,10 @@ export default function Chat() {
         description: "Failed to generate image. Try again!",
         variant: "destructive",
       });
+    } finally {
+      setIsTyping(false);
     }
-  };
+  };</old_str></old_str>
 
   return (
     <>
@@ -341,13 +363,21 @@ export default function Chat() {
                         {message.content}
                       </p>
                       {/* Display generated images */}
-                      {message.content.includes('data:image/') && (
+                      {(message.content.includes('data:image/') || message.content.includes('Here\'s your generated image')) && (
                         <div className="mt-3">
-                          <img 
-                            src={message.content.match(/data:image\/[^"]+/)?.[0] || ''} 
-                            alt="Generated image" 
-                            className="max-w-sm rounded-lg border border-dark-tertiary"
-                          />
+                          {(() => {
+                            const imageMatch = message.content.match(/data:image\/[^"\s]+/);
+                            if (imageMatch) {
+                              return (
+                                <img 
+                                  src={imageMatch[0]} 
+                                  alt="Generated image" 
+                                  className="max-w-sm max-h-64 rounded-lg border border-dark-tertiary object-contain"
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       )}
                     </div>
