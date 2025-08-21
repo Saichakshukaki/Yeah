@@ -78,13 +78,13 @@ export default function Chat() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!currentSessionId) throw new Error("No active session");
-      
+
       // Include location data if available
       const requestBody: any = {
         content,
         role: "user"
       };
-      
+
       if (geolocation.data) {
         requestBody.userLocation = {
           lat: geolocation.data.latitude,
@@ -126,10 +126,10 @@ export default function Chat() {
 
   const sendMessage = async () => {
     if (!messageInput.trim()) return;
-    
+
     // Auto-request location if needed
     await requestLocationIfNeeded(messageInput.trim());
-    
+
     sendMessageMutation.mutate(messageInput.trim());
   };
 
@@ -151,7 +151,7 @@ export default function Chat() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
-    
+
     // Auto-resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -197,7 +197,7 @@ export default function Chat() {
     const needsLocation = locationKeywords.some(keyword => 
       message.toLowerCase().includes(keyword)
     );
-    
+
     if (needsLocation && !geolocation.data) {
       await geolocation.requestPermission();
     }
@@ -214,7 +214,7 @@ export default function Chat() {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
-      
+
       <div className="flex h-screen bg-dark-bg text-text-primary">
         {/* Sidebar */}
         <Sidebar
@@ -223,7 +223,7 @@ export default function Chat() {
           onNewChat={createNewSession}
           onSettingsClick={() => setShowSettingsModal(true)}
         />
-        
+
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Chat Messages */}
@@ -253,7 +253,7 @@ export default function Chat() {
                       />
                     </div>
                   )}
-                  
+
                   <div
                     className={`rounded-2xl p-4 max-w-2xl relative group ${
                       message.role === 'user'
@@ -267,7 +267,7 @@ export default function Chat() {
                         {message.content}
                       </p>
                     </div>
-                    
+
                     <div className="flex items-center justify-between mt-2 text-xs text-text-muted">
                       <span>{formatTime(message.createdAt)}</span>
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
@@ -296,7 +296,7 @@ export default function Chat() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {message.role === 'user' && (
                     <div className="w-8 h-8 bg-gradient-to-r from-chat-user to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="text-white h-4 w-4" />
@@ -305,7 +305,7 @@ export default function Chat() {
                 </div>
               ))
             )}
-            
+
             {isTyping && (
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -325,7 +325,7 @@ export default function Chat() {
               </div>
             )}
           </main>
-          
+
           {/* Chat Input */}
           <footer className="p-4 border-t border-dark-tertiary bg-dark-secondary">
             <div className="flex items-end space-x-3">
@@ -340,7 +340,7 @@ export default function Chat() {
                   rows={1}
                   data-testid="input-message"
                 />
-                
+
                 <Button
                   onClick={sendMessage}
                   disabled={!messageInput.trim() || sendMessageMutation.isPending}
@@ -351,7 +351,7 @@ export default function Chat() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="flex justify-between items-center mt-2 text-xs text-text-muted">
               <div className="flex items-center space-x-4">
                 <span>Press Enter to send • Shift+Enter for new line</span>
