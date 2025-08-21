@@ -126,7 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const prompt = content.replace('[IMAGE_GENERATION]', '').trim();
 
         try {
+          console.log(`Starting image generation for: "${prompt}"`);
           const imageUrl = await generateImage(prompt);
+          console.log('Image generation successful');
 
           // Create user message
           const userMessage = await storage.createChatMessage({
@@ -136,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Create AI message with generated image
-          aiMessageContent = `Here's your generated image for "${prompt}":\n\n![Generated Image](${imageUrl})`;
+          aiMessageContent = `Here's your generated image for "${prompt}"! 🎨\n\n![Generated Image](${imageUrl})\n\nNot bad for an AI artist, right? Though I do say so myself! 😏`;
           const aiMessage = await storage.createChatMessage({
             sessionId,
             role: "assistant",
@@ -153,7 +155,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({ userMessage, aiMessage });
         } catch (error) {
           console.error("Image generation failed:", error);
-          aiMessageContent = "Sorry, my artistic talents are offline right now! Even Picasso had bad days. 🎨 Try again in a moment.";
+          const errorMessage = error.message || "Unknown error occurred";
+          
+          if (errorMessage.includes('artistic talents')) {
+            aiMessageContent = errorMessage;
+          } else {
+            aiMessageContent = `Well, this is embarrassing! 😅 My artistic side is having a creative crisis right now. The image generation services are being as reliable as a chocolate teapot. Want to try again with a different prompt, or shall I help you craft the perfect description for when my artistic mojo returns? 🎨`;
+          }
 
           // Create user message
           const userMessage = await storage.createChatMessage({
@@ -175,12 +183,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (imageUrl) {
         try {
+          console.log('Starting image analysis...');
           const analysis = await analyzeImage(imageUrl);
-          const formattedAnalysis = formatImageAnalysisForAI(analysis);
-          processedContent = `Image analysis: ${formattedAnalysis}\n\nOriginal prompt: ${content}`;
+          console.log('Image analysis completed');
+          const formattedAnalysis = formatImageAnalysisForAI(analysis, content);
+          processedContent = `${formattedAnalysis}`;
         } catch (error) {
           console.error("Image analysis failed:", error);
-          processedContent = `Error analyzing image. Please try again. Original prompt: ${content}`;
+          processedContent = `I can see you uploaded an image, but my vision circuits are having a moment! 👀 Could you describe what's in the image? I'd love to help analyze it with my wit intact! Original message: ${content}`;
         }
       }
 

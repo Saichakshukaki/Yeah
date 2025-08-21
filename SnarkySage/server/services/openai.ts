@@ -460,6 +460,16 @@ function generateIntelligentFallback(userMessage: string, realTimeInfo?: string)
   const msg = userMessage.toLowerCase();
   const timeInfo = realTimeInfo ? `\n\n${realTimeInfo}` : '';
   
+  // Handle image generation requests
+  if (msg.includes('generate') && (msg.includes('image') || msg.includes('picture') || msg.includes('draw'))) {
+    return `Oh, you want me to create visual art? 🎨 How delightfully ambitious! While my artistic circuits are having a creative block right now, I can definitely help you craft the perfect prompt for image generation. Just tell me what you want to see and I'll make it sound absolutely magnificent!${timeInfo}`;
+  }
+  
+  // Handle image analysis requests
+  if (msg.includes('what') && (msg.includes('image') || msg.includes('picture') || msg.includes('this'))) {
+    return `Ah, playing the guessing game with images, are we? 🕵️ My visual analysis skills are temporarily on coffee break, but if you describe what you're seeing, I can provide some wonderfully sarcastic insights about it!${timeInfo}`;
+  }
+  
   // Analyze the question type and provide a relevant sarcastic response
   if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
     return `Oh, how *original*! 🙄 Another human starts with a greeting. What can I help you with, genius? (Note: I'm temporarily running in demo mode while my AI brain reboots!)${timeInfo}`;
