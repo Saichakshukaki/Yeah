@@ -26,39 +26,72 @@ export class ChessEngine {
       moves: [],
       gameOver: false
     };
-    this.initStockfish();
+    // Removed the direct call to initStockfish and instead added a check in initializeStockfish.
+    // The constructor now relies on initializeStockfish being called and setting isReady.
   }
 
-  private initStockfish() {
+  private async initializeStockfish(): Promise<void> {
     try {
-      // Initialize Stockfish engine
-      this.stockfish = spawn('stockfish');
-      
-      if (this.stockfish.stdout) {
-        this.stockfish.stdout.on('data', (data: Buffer) => {
-          const output = data.toString();
-          if (output.includes('uciok')) {
-            this.isReady = true;
-          }
-        });
-      }
+      // Check if stockfish is available before trying to spawn
+      const { spawn: testSpawn } = await import('child_process');
+      const testProcess = testSpawn('which', ['stockfish']);
 
-      this.stockfish.on('error', (error: any) => {
-        console.log('Stockfish not available, using fallback AI:', error.message);
-        this.stockfish = null;
-        this.isReady = true;
+      testProcess.on('error', () => {
+        console.log('Stockfish not available, using fallback AI');
+        this.isReady = false;
+        return;
       });
 
-      // Initialize UCI protocol
-      if (this.stockfish && this.stockfish.stdin) {
-        this.stockfish.stdin.write('uci\n');
-        this.stockfish.stdin.write('isready\n');
-      }
+      testProcess.on('exit', (code) => {
+        if (code === 0) {
+          // Stockfish is available, proceed with initialization
+          this.startStockfish();
+        } else {
+          console.log('Stockfish not found in PATH, using fallback AI');
+          this.isReady = false;
+        }
+      });
+
     } catch (error) {
-      console.log('Stockfish initialization failed, using fallback AI:', error);
-      // Fallback to simple chess logic if Stockfish is not available
-      this.stockfish = null;
-      this.isReady = true;
+      console.error('Stockfish initialization check failed:', error);
+      this.isReady = false;
+    }
+  }
+
+  private startStockfish(): void {
+    try {
+      this.stockfish = spawn('stockfish');
+
+      this.stockfish.stdout?.on('data', (data: Buffer) => {
+        const output = data.toString();
+        if (output.includes('uciok')) {
+          this.isReady = true;
+          console.log('Stockfish initialized successfully');
+        }
+      });
+
+      this.stockfish.stderr?.on('data', (data: Buffer) => {
+        console.error('Stockfish error:', data.toString());
+      });
+
+      this.stockfish.on('error', (error: Error) => {
+        console.error('Stockfish spawn error:', error);
+        this.isReady = false;
+      });
+
+      this.stockfish.on('close', (code: number) => {
+        console.log(`Stockfish exited with code ${code}`);
+        this.isReady = false;
+      });
+
+      // Send UCI command to initialize
+      if (this.stockfish.stdin) {
+        this.stockfish.stdin.write('uci\n');
+      }
+
+    } catch (error) {
+      console.error('Failed to start Stockfish:', error);
+      this.isReady = false;
     }
   }
 
@@ -75,10 +108,10 @@ export class ChessEngine {
 
       // Add user's move
       this.gameState.moves.push(move);
-      
+
       // Get AI response using Stockfish or fallback
       const aiMove = await this.getAIMove();
-      
+
       if (aiMove) {
         this.gameState.moves.push(aiMove);
       }
@@ -110,7 +143,7 @@ export class ChessEngine {
         // Use Stockfish for move generation
         return new Promise((resolve) => {
           const timeout = setTimeout(() => resolve(this.getFallbackMove()), 3000);
-          
+
           if (this.stockfish && this.stockfish.stdout) {
             this.stockfish.stdout.on('data', (data: Buffer) => {
               const output = data.toString();
@@ -144,21 +177,21 @@ export class ChessEngine {
   private getFallbackMove(): string {
     // Simple fallback AI with basic chess knowledge
     const moveCount = this.gameState.moves.length;
-    
+
     // Opening moves
     if (moveCount === 0) return 'e2e4'; // King's pawn
     if (moveCount === 2) return 'g1f3'; // King's knight
     if (moveCount === 4) return 'f1c4'; // Bishop
     if (moveCount === 6) return 'e1g1'; // Castle (if possible)
-    
+
     // Mid-game moves (simple patterns)
     const midGameMoves = ['d2d4', 'b1c3', 'd1h5', 'c1f4', 'a2a3', 'h2h3'];
     const fallbackMoves = ['e2e4', 'e2e3', 'd2d4', 'd2d3', 'g1f3', 'b1c3'];
-    
+
     if (moveCount < 12) {
       return midGameMoves[moveCount % midGameMoves.length];
     }
-    
+
     return fallbackMoves[moveCount % fallbackMoves.length];
   }
 
@@ -192,7 +225,7 @@ export class ChessEngine {
   public getBoardDisplay(): string {
     // ASCII board representation for display
     const moves = this.gameState.moves;
-    
+
     let board = `
     a  b  c  d  e  f  g  h
 8  ♜  ♞  ♝  ♛  ♚  ♝  ♞  ♜  8
@@ -212,3 +245,5 @@ export class ChessEngine {
 
 // Global chess engine instance
 export const chessEngine = new ChessEngine();
+// Call initializeStockfish to set up the engine when the module is loaded.
+chessEngine.initializeStockfish();

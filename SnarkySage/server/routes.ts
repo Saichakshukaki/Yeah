@@ -7,7 +7,7 @@ import { enhanceResponseWithWebData } from "./services/websearch";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
   // Create a new chat session
   app.post("/api/chat/sessions", async (req, res) => {
     try {
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/chat/sessions", async (req, res) => {
     try {
       const userId = (req.query.userId as string) || 'anonymous';
-      
+
       const sessions = await storage.getUserChatSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -79,19 +79,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lon: z.number()
         }).optional()
       });
-      
+
       const { content, role, userLocation } = messageSchema.parse(req.body);
-      
+
       // Set up SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
-      
+
       // Filter personal information from user message
       const filteredContent = await filterPersonalInformation(content);
-      
+
       // Save user message
       const userMessage = await storage.createChatMessage({
         sessionId,
@@ -101,9 +101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Send user message immediately
-      res.write(`data: ${JSON.stringify({ 
-        type: 'userMessage', 
-        message: userMessage 
+      res.write(`data: ${JSON.stringify({
+        type: 'userMessage',
+        message: userMessage
       })}\n\n`);
 
       // Get conversation history for context
@@ -114,26 +114,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // Get user's IP address for location-based real-time data
-      const userIP = req.ip || req.socket?.remoteAddress || 
+      const userIP = req.ip || req.socket?.remoteAddress ||
                      req.connection?.remoteAddress || '127.0.0.1';
 
       // Generate AI response with streaming
       let fullAiResponse = '';
       const aiMessageId = `temp_${Date.now()}`;
-      
+
       try {
         fullAiResponse = await generateSarcasticResponseStream(
-          filteredContent, 
-          conversationHistory, 
-          userIP, 
+          filteredContent,
+          conversationHistory,
+          userIP,
           userLocation,
           (chunk: string) => {
             fullAiResponse += chunk;
             try {
-              res.write(`data: ${JSON.stringify({ 
-                type: 'aiChunk', 
+              res.write(`data: ${JSON.stringify({
+                type: 'aiChunk',
                 chunk,
-                messageId: aiMessageId 
+                messageId: aiMessageId
               })}\n\n`);
             } catch (writeError) {
               console.error('Error writing SSE chunk:', writeError);
@@ -143,14 +143,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Enhance with web data if needed
         const enhancedResponse = await enhanceResponseWithWebData(filteredContent, fullAiResponse);
-        
+
         // If enhanced, send the additional content
         if (enhancedResponse !== fullAiResponse) {
           const additionalContent = enhancedResponse.replace(fullAiResponse, '');
-          res.write(`data: ${JSON.stringify({ 
-            type: 'aiChunk', 
+          res.write(`data: ${JSON.stringify({
+            type: 'aiChunk',
             chunk: additionalContent,
-            messageId: aiMessageId 
+            messageId: aiMessageId
           })}\n\n`);
           fullAiResponse = enhancedResponse;
         }
@@ -160,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId,
           role: "assistant",
           content: fullAiResponse,
-          metadata: { 
+          metadata: {
             userMessageId: userMessage.id,
             enhanced: fullAiResponse.includes("*Real-time info"),
             streamed: true
@@ -168,8 +168,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Send final message with database ID
-        res.write(`data: ${JSON.stringify({ 
-          type: 'aiComplete', 
+        res.write(`data: ${JSON.stringify({
+          type: 'aiComplete',
           message: aiMessage,
           tempId: aiMessageId
         })}\n\n`);
@@ -178,28 +178,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateChatSession(sessionId, {});
 
       } catch (error) {
-        console.error("Streaming chat error:", error);
-        
-        // Generate a sarcastic error response
+        console.error('Error in streaming:', error);
+
+        // Create error message in database
         const errorMessage = await storage.createChatMessage({
           sessionId,
           role: "assistant",
-          content: "Oops! Even I can't fix that mess. My circuits are having a moment. Try again, genius. 🤖💥",
-          metadata: { error: true, streamed: true }
+          content: "Oops! My circuits are having a moment. Even I can't fix that mess right now. Try again, genius! 🤖💥",
+          metadata: { error: true, userMessageId: userMessage.id }
         });
-        
-        res.write(`data: ${JSON.stringify({ 
-          type: 'error', 
-          message: errorMessage 
+
+        res.write(`data: ${JSON.stringify({
+          type: 'aiComplete',
+          message: errorMessage,
+          tempId: aiMessageId
         })}\n\n`);
+
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+        res.end();
       }
-      
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
-      res.end();
-      
     } catch (error) {
-      console.error("SSE setup error:", error);
-      res.status(500).json({ error: "Failed to setup streaming" });
+      console.error("Stream chat error:", error);
+
+      try {
+        res.write(`data: ${JSON.stringify({
+          type: 'error',
+          error: 'Failed to process streaming message'
+        })}\n\n`);
+        res.end();
+      } catch (writeError) {
+        console.error("Failed to write error response:", writeError);
+        res.status(500).json({ error: "Failed to process streaming message" });
+      }
     }
   });
 
@@ -215,12 +225,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lon: z.number()
         }).optional()
       });
-      
+
       const { content, role, userLocation } = messageSchema.parse(req.body);
-      
+
       // Filter personal information from user message
       const filteredContent = await filterPersonalInformation(content);
-      
+
       // Save user message
       const userMessage = await storage.createChatMessage({
         sessionId,
@@ -237,12 +247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
 
       // Get user's IP address for location-based real-time data
-      const userIP = req.ip || req.socket?.remoteAddress || 
+      const userIP = req.ip || req.socket?.remoteAddress ||
                      req.connection?.remoteAddress || '127.0.0.1';
 
       // Generate AI response with real-time data
       let aiResponse = await generateSarcasticResponse(filteredContent, conversationHistory, userIP, userLocation);
-      
+
       // Enhance with web data if needed
       aiResponse = await enhanceResponseWithWebData(filteredContent, aiResponse);
 
@@ -251,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId,
         role: "assistant",
         content: aiResponse,
-        metadata: { 
+        metadata: {
           userMessageId: userMessage.id,
           enhanced: aiResponse.includes("*Real-time info")
         }
@@ -266,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Chat error:", error);
-      
+
       // Generate a sarcastic error response
       const errorMessage = await storage.createChatMessage({
         sessionId: req.params.id,
@@ -274,8 +284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: "Oops! Even I can't fix that mess. My circuits are having a moment. Try again, genius. 🤖💥",
         metadata: { error: true }
       });
-      
-      res.status(500).json({ 
+
+      res.status(500).json({
         error: "Failed to process message",
         aiMessage: errorMessage
       });
@@ -287,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionId = req.params.id;
       const messages = await storage.getSessionMessages(sessionId);
-      
+
       if (messages.length < 2) {
         return res.status(400).json({ error: "No message to regenerate" });
       }
@@ -296,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lastUserMessage = messages
         .filter(msg => msg.role === "user")
         .pop();
-      
+
       if (!lastUserMessage) {
         return res.status(400).json({ error: "No user message found" });
       }
@@ -311,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
       // Get user's IP address for location-based real-time data
-      const userIP = req.ip || req.socket?.remoteAddress || 
+      const userIP = req.ip || req.socket?.remoteAddress ||
                      req.connection?.remoteAddress || '127.0.0.1';
 
       // Generate new AI response with real-time data (no user location for regeneration)
@@ -323,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId,
         role: "assistant",
         content: aiResponse,
-        metadata: { 
+        metadata: {
           regenerated: true,
           originalMessageId: lastUserMessage.id
         }

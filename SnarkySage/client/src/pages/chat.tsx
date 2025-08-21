@@ -162,7 +162,29 @@ export default function Chat() {
           console.error('SSE error:', error);
           eventSource.close();
           setStreamingMessage(null);
-          reject(new Error('Streaming connection failed'));
+          
+          // Try to fallback to regular API call
+          fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content: messageData.content,
+              role: messageData.role,
+              userLocation: messageData.userLocation,
+            }),
+          })
+          .then(res => res.json())
+          .then(data => {
+            queryClient.invalidateQueries({ 
+              queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+            });
+            resolve(data.aiMessage);
+          })
+          .catch(() => {
+            reject(new Error('Both streaming and regular API failed'));
+          });
         };
         
         // Send the actual POST request to start streaming

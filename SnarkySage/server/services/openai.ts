@@ -96,7 +96,15 @@ async function callLLM7Stream(
     return fullResponse || "Well, that's embarrassing. I got a response but it's as empty as your expectations. Try again!";
   } catch (error) {
     console.error("LLM7 streaming error:", error);
-    throw error;
+    
+    // More specific error handling
+    if (error.message?.includes('fetch')) {
+      throw new Error('Network connection failed - my streaming brain is offline');
+    } else if (error.message?.includes('JSON')) {
+      throw new Error('Response parsing failed - got gibberish from the AI server');
+    } else {
+      throw new Error('Streaming failed - my circuits are having a moment');
+    }
   }
 }
 
@@ -244,21 +252,32 @@ Use this real-time information naturally in your responses when relevant. For lo
     } catch (llm7Error) {
       console.error("LLM7 streaming failed, falling back to non-streaming:", llm7Error);
       
-      // Fallback to non-streaming approach
-      const response = await generateSarcasticResponse(userMessage, conversationHistory, userIP, userLocation);
-      
-      // Simulate streaming by sending the response word by word
-      if (onChunk) {
-        const words = response.split(' ');
-        for (let i = 0; i < words.length; i++) {
-          const chunk = i === 0 ? words[i] : ' ' + words[i];
-          onChunk(chunk);
-          // Add small delay to simulate streaming
-          await new Promise(resolve => setTimeout(resolve, 50));
+      try {
+        // Fallback to non-streaming approach
+        const response = await generateSarcasticResponse(userMessage, conversationHistory, userIP, userLocation);
+        
+        // Simulate streaming by sending the response word by word
+        if (onChunk) {
+          const words = response.split(' ');
+          for (let i = 0; i < words.length; i++) {
+            const chunk = i === 0 ? words[i] : ' ' + words[i];
+            onChunk(chunk);
+            // Add small delay to simulate streaming
+            await new Promise(resolve => setTimeout(resolve, 30));
+          }
         }
+        
+        return response;
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+        const errorResponse = generateIntelligentFallback(userMessage);
+        
+        if (onChunk) {
+          onChunk(errorResponse);
+        }
+        
+        return errorResponse;
       }
-      
-      return response;
     }
   } catch (error) {
     console.error("Complete streaming failure:", error);
