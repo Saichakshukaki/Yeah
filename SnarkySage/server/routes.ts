@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertChatSessionSchema, insertChatMessageSchema } from "@shared/schema";
-import { generateSarcasticResponse, filterPersonalInformation } from "./services/openai";
+import { generateSarcasticResponse, generateSarcasticResponseStream, filterPersonalInformation } from "./services/openai";
 import { enhanceResponseWithWebData } from "./services/websearch";
 import { z } from "zod";
 
@@ -122,18 +122,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const aiMessageId = `temp_${Date.now()}`;
       
       try {
-        await generateSarcasticResponseStream(
+        fullAiResponse = await generateSarcasticResponseStream(
           filteredContent, 
           conversationHistory, 
           userIP, 
           userLocation,
           (chunk: string) => {
             fullAiResponse += chunk;
-            res.write(`data: ${JSON.stringify({ 
-              type: 'aiChunk', 
-              chunk,
-              messageId: aiMessageId 
-            })}\n\n`);
+            try {
+              res.write(`data: ${JSON.stringify({ 
+                type: 'aiChunk', 
+                chunk,
+                messageId: aiMessageId 
+              })}\n\n`);
+            } catch (writeError) {
+              console.error('Error writing SSE chunk:', writeError);
+            }
           }
         );
 
