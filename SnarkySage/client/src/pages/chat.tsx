@@ -9,7 +9,9 @@ import {
   Copy, 
   RefreshCw,
   Bot,
-  User
+  User,
+  Image as ImageIcon,
+  Palette
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import Sidebar from "@/components/Sidebar";
@@ -27,6 +29,8 @@ export default function Chat() {
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -79,6 +83,27 @@ export default function Chat() {
     mutationFn: async (content: string) => {
       if (!currentSessionId) throw new Error("No active session");
 
+      // Handle image upload if present
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('image', selectedImage);
+        formData.append('content', content);
+        formData.append('role', 'user');
+        
+        if (geolocation.data) {
+          formData.append('userLocation', JSON.stringify({
+            lat: geolocation.data.latitude,
+            lon: geolocation.data.longitude
+          }));
+        }
+
+        const response = await fetch(`/api/chat/sessions/${currentSessionId}/messages-with-image`, {
+          method: 'POST',
+          body: formData
+        });
+        return response.json();
+      }
+
       // Include location data if available
       const requestBody: any = {
         content,
@@ -100,6 +125,8 @@ export default function Chat() {
     },
     onSuccess: () => {
       setMessageInput("");
+      setSelectedImage(null);
+      setImagePreview(null);
       setIsTyping(false);
       // Refresh messages and sessions to get updated title
       queryClient.invalidateQueries({ 
@@ -203,6 +230,53 @@ export default function Chat() {
     }
   };
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  const generateImage = async () => {
+    if (!messageInput.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a prompt for image generation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await apiRequest("POST", "/api/generate-image", {
+        prompt: messageInput.trim()
+      });
+      const data = await response.json();
+      
+      if (data.imageUrl) {
+        // Add the generated image as a message
+        setMessageInput(`Generated image: ${messageInput.trim()}`);
+        sendMessage();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate image. Try again!",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <PrivacyPolicyModal
@@ -266,6 +340,16 @@ export default function Chat() {
                       <p className="text-white whitespace-pre-wrap break-words mb-0">
                         {message.content}
                       </p>
+                      {/* Display generated images */}
+                      {message.content.includes('data:image/') && (
+                        <div className="mt-3">
+                          <img 
+                            src={message.content.match(/data:image\/[^"]+/)?.[0] || ''} 
+                            alt="Generated image" 
+                            className="max-w-sm rounded-lg border border-dark-tertiary"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between mt-2 text-xs text-text-muted">
@@ -328,7 +412,56 @@ export default function Chat() {
 
           {/* Chat Input */}
           <footer className="p-4 border-t border-dark-tertiary bg-dark-secondary">
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="mb-3 relative inline-block">
+                <img 
+                  src={imagePreview} 
+                  alt="Upload preview" 
+                  className="max-w-32 max-h-32 rounded-lg border border-dark-tertiary"
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
             <div className="flex items-end space-x-3">
+              <div className="flex flex-col space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-10 h-10 bg-dark-bg hover:bg-dark-tertiary border border-dark-tertiary rounded-lg"
+                    asChild
+                  >
+                    <span>
+                      <ImageIcon className="h-4 w-4 text-text-muted" />
+                    </span>
+                  </Button>
+                </label>
+                <Button
+                  onClick={generateImage}
+                  disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                  variant="ghost"
+                  size="sm"
+                  className="w-10 h-10 bg-dark-bg hover:bg-dark-tertiary border border-dark-tertiary rounded-lg"
+                  title="Generate Image"
+                >
+                  <Palette className="h-4 w-4 text-text-muted" />
+                </Button>
+              </div>
+
               <div className="flex-1 relative">
                 <Textarea
                   ref={textareaRef}
@@ -343,7 +476,7 @@ export default function Chat() {
 
                 <Button
                   onClick={sendMessage}
-                  disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                  disabled={(!messageInput.trim() && !selectedImage) || sendMessageMutation.isPending}
                   className="absolute right-2 bottom-2 w-8 h-8 bg-chat-user hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-all duration-200 transform hover:scale-105 disabled:transform-none p-0"
                   data-testid="button-send"
                 >

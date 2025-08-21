@@ -2,11 +2,31 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertChatSessionSchema, insertChatMessageSchema } from "@shared/schema";
-import { generateSarcasticResponse, filterPersonalInformation } from "./services/openai";
+import { generateSarcasticResponse, generateSarcasticResponseStream, filterPersonalInformation } from "./services/openai";
 import { enhanceResponseWithWebData } from "./services/websearch";
+import { analyzeImage, generateImage, formatImageAnalysisForAI } from "./services/vision";
+import multer from "multer";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Trust proxy to get real IP addresses
+  app.set('trust proxy', true);
+
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed!'), false);
+      }
+    },
+  });
 
   // Create a new chat session
   app.post("/api/chat/sessions", async (req, res) => {
@@ -71,12 +91,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const generateTitleFromMessage = (message: string): string => {
     // Clean and truncate the message
     const cleaned = message.trim().replace(/[^\w\s]/g, '').substring(0, 50);
-    
+
     // If too short, return a default
     if (cleaned.length < 10) {
       return "Quick Chat";
     }
-    
+
     // Capitalize first letter and add ellipsis if truncated
     const title = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
     return cleaned.length >= 50 ? title + "..." : title;
@@ -92,20 +112,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userLocation: z.object({
           lat: z.number(),
           lon: z.number()
-        }).optional()
+        }).optional(),
+        imageUrl: z.string().optional() // Add imageUrl to the schema
       });
 
-      const { content, role, userLocation } = messageSchema.parse(req.body);
+      const { content, role, userLocation, imageUrl } = messageSchema.parse(req.body);
+
+      let processedContent = content;
+      let aiMessageContent = '';
+
+      if (imageUrl) {
+        try {
+          const analysis = await analyzeImage(imageUrl);
+          const formattedAnalysis = formatImageAnalysisForAI(analysis);
+          processedContent = `Image analysis: ${formattedAnalysis}\n\nOriginal prompt: ${content}`;
+        } catch (error) {
+          console.error("Image analysis failed:", error);
+          processedContent = `Error analyzing image. Please try again. Original prompt: ${content}`;
+        }
+      }
 
       // Filter personal information from user message
-      const filteredContent = await filterPersonalInformation(content);
+      const filteredContent = await filterPersonalInformation(processedContent);
 
       // Save user message
       const userMessage = await storage.createChatMessage({
         sessionId,
         role,
         content: filteredContent,
-        metadata: { originalLength: content.length }
+        metadata: { originalLength: content.length, imageUrl: imageUrl }
       });
 
       // Check if this is the first message in the session and update title
@@ -165,6 +200,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to process message",
         aiMessage: errorMessage
       });
+    }
+  });
+
+  // Route to handle image uploads for analysis
+  app.post("/api/chat/upload-image", upload.single('image'), async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded.' });
+    }
+
+    try {
+      const analysis = await analyzeImage(req.file.buffer.toString('base64'));
+      const formattedAnalysis = formatImageAnalysisForAI(analysis);
+      res.json({ analysis: formattedAnalysis });
+    } catch (error) {
+      console.error("Image upload and analysis failed:", error);
+      res.status(500).json({ error: 'Failed to analyze image.' });
+    }
+  });
+
+  // Route to handle image generation
+  app.post("/api/chat/generate-image", async (req, res) => {
+    try {
+      const { prompt } = z.object({ prompt: z.string().min(1) }).parse(req.body);
+
+      const imageUrl = await generateImage(prompt);
+      res.json({ imageUrl });
+    } catch (error) {
+      console.error("Image generation failed:", error);
+      res.status(500).json({ error: 'Failed to generate image.' });
     }
   });
 
