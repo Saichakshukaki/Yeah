@@ -169,11 +169,7 @@ export default function Chat() {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              content: messageData.content,
-              role: messageData.role,
-              userLocation: messageData.userLocation,
-            }),
+            body: JSON.stringify(requestBody),
           })
           .then(res => res.json())
           .then(data => {
