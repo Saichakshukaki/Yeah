@@ -6,14 +6,14 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Chat session methods
   createChatSession(session: InsertChatSession): Promise<ChatSession>;
   getChatSession(id: string): Promise<ChatSession | undefined>;
   getUserChatSessions(userId: string): Promise<ChatSession[]>;
   updateChatSession(id: string, updates: Partial<ChatSession>): Promise<ChatSession | undefined>;
   deleteChatSession(id: string): Promise<boolean>;
-  
+
   // Chat message methods
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getSessionMessages(sessionId: string): Promise<ChatMessage[]>;
@@ -59,6 +59,7 @@ export class MemStorage implements IStorage {
       userId: insertSession.userId || null,
       createdAt: now,
       updatedAt: now,
+      title: "New Chat", // Default title
     };
     this.chatSessions.set(id, session);
     return session;
@@ -77,7 +78,7 @@ export class MemStorage implements IStorage {
   async updateChatSession(id: string, updates: Partial<ChatSession>): Promise<ChatSession | undefined> {
     const session = this.chatSessions.get(id);
     if (!session) return undefined;
-    
+
     const updatedSession = {
       ...session,
       ...updates,
@@ -118,11 +119,11 @@ export class MemStorage implements IStorage {
   async deleteSessionMessages(sessionId: string): Promise<boolean> {
     const messagesToDelete = Array.from(this.chatMessages.entries())
       .filter(([_, message]) => message.sessionId === sessionId);
-    
+
     messagesToDelete.forEach(([id, _]) => {
       this.chatMessages.delete(id);
     });
-    
+
     return messagesToDelete.length > 0;
   }
 }

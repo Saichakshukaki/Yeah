@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertChatSessionSchema, insertChatMessageSchema } from "@shared/schema";
-import { generateSarcasticResponse, generateSarcasticResponseStream, filterPersonalInformation } from "./services/openai";
+import { generateSarcasticResponse, filterPersonalInformation } from "./services/openai";
 import { enhanceResponseWithWebData } from "./services/websearch";
 import { z } from "zod";
 
@@ -67,184 +67,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stream a message and get AI response via SSE
-  app.post("/api/chat/sessions/:id/messages/stream", async (req, res) => {
-    try {
-      const sessionId = req.params.id;
-      const messageSchema = z.object({
-        content: z.string().min(1),
-        role: z.literal("user"),
-        userLocation: z.object({
-          lat: z.number(),
-          lon: z.number()
-        }).optional()
-      });
-
-      const { content, role, userLocation } = messageSchema.parse(req.body);
-
-      // Set up SSE headers
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Headers', 'Cache-Control, Content-Type');
-      res.setHeader('X-Accel-Buffering', 'no');
-
-      // Send initial connection confirmation
-      res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
-
-      let responseComplete = false;
-
-      // Handle client disconnect
-      req.on('close', () => {
-        responseComplete = true;
-        console.log('Client disconnected from stream');
-      });
-
-      // Filter personal information from user message
-      const filteredContent = await filterPersonalInformation(content);
-
-      // Save user message
-      const userMessage = await storage.createChatMessage({
-        sessionId,
-        role,
-        content: filteredContent,
-        metadata: { originalLength: content.length }
-      });
-
-      // Send user message immediately
-      if (!responseComplete) {
-        res.write(`data: ${JSON.stringify({
-          type: 'userMessage',
-          message: userMessage
-        })}\n\n`);
-      }
-
-      // Get conversation history for context
-      const messages = await storage.getSessionMessages(sessionId);
-      const conversationHistory = messages.slice(-10).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      // Get user's IP address for location-based real-time data
-      const userIP = req.ip || req.socket?.remoteAddress ||
-                     req.connection?.remoteAddress || '127.0.0.1';
-
-      // Generate AI response with streaming
-      let fullAiResponse = '';
-      const aiMessageId = `temp_${Date.now()}`;
-
-      try {
-        fullAiResponse = await generateSarcasticResponseStream(
-          filteredContent,
-          conversationHistory,
-          userIP,
-          userLocation,
-          (chunk: string) => {
-            if (responseComplete) return;
-            
-            try {
-              res.write(`data: ${JSON.stringify({
-                type: 'aiChunk',
-                chunk,
-                messageId: aiMessageId
-              })}\n\n`);
-            } catch (writeError) {
-              console.error('Error writing SSE chunk:', writeError);
-              responseComplete = true;
-            }
-          }
-        );
-
-        if (responseComplete) return;
-
-        // Enhance with web data if needed
-        const enhancedResponse = await enhanceResponseWithWebData(filteredContent, fullAiResponse);
-
-        // If enhanced, send the additional content
-        if (enhancedResponse !== fullAiResponse && !responseComplete) {
-          const additionalContent = enhancedResponse.replace(fullAiResponse, '');
-          res.write(`data: ${JSON.stringify({
-            type: 'aiChunk',
-            chunk: additionalContent,
-            messageId: aiMessageId
-          })}\n\n`);
-          fullAiResponse = enhancedResponse;
-        }
-
-        // Save AI message to database
-        const aiMessage = await storage.createChatMessage({
-          sessionId,
-          role: "assistant",
-          content: fullAiResponse,
-          metadata: {
-            userMessageId: userMessage.id,
-            enhanced: fullAiResponse.includes("*Real-time info"),
-            streamed: true
-          }
-        });
-
-        // Send final message with database ID
-        if (!responseComplete) {
-          res.write(`data: ${JSON.stringify({
-            type: 'aiComplete',
-            message: aiMessage,
-            tempId: aiMessageId
-          })}\n\n`);
-        }
-
-        // Update session timestamp
-        await storage.updateChatSession(sessionId, {});
-
-        responseComplete = true;
-        res.end();
-
-      } catch (error) {
-        console.error('Error in streaming:', error);
-
-        if (!responseComplete) {
-          // Create error message in database
-          const errorMessage = await storage.createChatMessage({
-            sessionId,
-            role: "assistant",
-            content: "Oops! My circuits are having a moment. Even I can't fix that mess right now. Try again, genius! 🤖💥",
-            metadata: { error: true, userMessageId: userMessage.id }
-          });
-
-          res.write(`data: ${JSON.stringify({
-            type: 'aiComplete',
-            message: errorMessage,
-            tempId: aiMessageId
-          })}\n\n`);
-
-          responseComplete = true;
-          res.end();
-        }
-      }
-    } catch (error) {
-      console.error("Stream chat error:", error);
-
-      try {
-        if (!res.headersSent) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
-        }
-        
-        res.write(`data: ${JSON.stringify({
-          type: 'error',
-          error: 'Failed to process streaming message'
-        })}\n\n`);
-        res.end();
-      } catch (writeError) {
-        console.error("Failed to write error response:", writeError);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Failed to process streaming message" });
-        }
-      }
+  // Generate title from message content
+  const generateTitleFromMessage = (message: string): string => {
+    // Clean and truncate the message
+    const cleaned = message.trim().replace(/[^\w\s]/g, '').substring(0, 50);
+    
+    // If too short, return a default
+    if (cleaned.length < 10) {
+      return "Quick Chat";
     }
-  });
+    
+    // Capitalize first letter and add ellipsis if truncated
+    const title = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    return cleaned.length >= 50 ? title + "..." : title;
+  };
 
   // Send a message and get AI response
   app.post("/api/chat/sessions/:id/messages", async (req, res) => {
@@ -271,6 +107,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: filteredContent,
         metadata: { originalLength: content.length }
       });
+
+      // Check if this is the first message in the session and update title
+      const existingMessages = await storage.getSessionMessages(sessionId);
+      if (existingMessages.length <= 1) {
+        const newTitle = generateTitleFromMessage(filteredContent);
+        await storage.updateChatSession(sessionId, { title: newTitle });
+      }
 
       // Get conversation history for context
       const messages = await storage.getSessionMessages(sessionId);
