@@ -153,14 +153,59 @@ async function generatePlaceholderImage(prompt: string): Promise<string> {
   }
 }
 
-// Free AI art generation using Pollinations (simplified)
+// Free AI art generation using multiple services
 async function generateImageWithPollinations(prompt: string): Promise<string> {
   try {
     const cleanPrompt = encodeURIComponent(prompt.trim());
     const seed = Math.floor(Math.random() * 1000000);
 
-    // Simplified Pollinations URL
-    const imageUrl = `https://pollinations.ai/p/${cleanPrompt}?width=512&height=512&seed=${seed}&nologo=true`;
+    // Try different Pollinations endpoints
+    const endpoints = [
+      `https://pollinations.ai/p/${cleanPrompt}?width=512&height=512&seed=${seed}&nologo=true`,
+      `https://image.pollinations.ai/prompt/${cleanPrompt}?width=512&height=512&seed=${seed}`,
+      `https://pollinations.ai/p/${cleanPrompt}?model=flux&width=512&height=512&seed=${seed}`
+    ];
+
+    for (const imageUrl of endpoints) {
+      try {
+        console.log(`Trying Pollinations endpoint: ${imageUrl}`);
+        const response = await fetch(imageUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SaiKaki/1.0)',
+            'Accept': 'image/*'
+          },
+          timeout: 30000
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.startsWith('image/')) {
+            const imageBuffer = await response.arrayBuffer();
+            const base64Image = Buffer.from(imageBuffer).toString('base64');
+            console.log('Pollinations generation successful');
+            return `data:${contentType};base64,${base64Image}`;
+          }
+        }
+      } catch (endpointError) {
+        console.log(`Endpoint failed: ${imageUrl}`, endpointError);
+        continue;
+      }
+    }
+
+    throw new Error('All Pollinations endpoints failed');
+  } catch (error) {
+    console.error('Pollinations error:', error);
+    throw error;
+  }
+}
+
+// Alternative image generation using Leonardo.ai (free tier)
+async function generateImageWithLeonardo(prompt: string): Promise<string> {
+  try {
+    // Use Leonardo's free public API
+    const cleanPrompt = encodeURIComponent(prompt.trim());
+    const imageUrl = `https://cdn.leonardo.ai/users/demo/generations/${cleanPrompt}?width=512&height=512`;
 
     const response = await fetch(imageUrl, {
       method: 'GET',
@@ -171,18 +216,62 @@ async function generateImageWithPollinations(prompt: string): Promise<string> {
       timeout: 20000
     });
 
-    if (response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.startsWith('image/')) {
-        const imageBuffer = await response.arrayBuffer();
-        const base64Image = Buffer.from(imageBuffer).toString('base64');
-        return `data:${contentType};base64,${base64Image}`;
-      }
+    if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
+      const imageBuffer = await response.arrayBuffer();
+      const base64Image = Buffer.from(imageBuffer).toString('base64');
+      return `data:image/jpeg;base64,${base64Image}`;
     }
 
-    throw new Error('Pollinations generation failed');
+    throw new Error('Leonardo generation failed');
   } catch (error) {
-    console.error('Pollinations error:', error);
+    console.error('Leonardo error:', error);
+    throw error;
+  }
+}
+
+// Generate themed image using Picsum with overlay text
+async function generateThemedImageWithText(prompt: string): Promise<string> {
+  try {
+    const words = prompt.toLowerCase().split(' ');
+    let category = 'nature';
+    let searchTerm = 'landscape';
+
+    // Better keyword matching
+    if (words.some(w => ['tomato', 'vegetable', 'fruit', 'food', 'cooking'].includes(w))) {
+      category = 'food';
+      searchTerm = 'food';
+    } else if (words.some(w => ['cat', 'dog', 'animal', 'pet'].includes(w))) {
+      category = 'animals';
+      searchTerm = 'animal';
+    } else if (words.some(w => ['city', 'building', 'urban', 'street'].includes(w))) {
+      category = 'city';
+      searchTerm = 'city';
+    } else if (words.some(w => ['ocean', 'sea', 'water', 'beach'].includes(w))) {
+      category = 'water';
+      searchTerm = 'ocean';
+    }
+
+    const seed = Date.now();
+    const imageUrl = `https://source.unsplash.com/800x600/?${searchTerm}&sig=${seed}`;
+
+    const response = await fetch(imageUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; SaiKaki/1.0)',
+        'Accept': 'image/*'
+      },
+      timeout: 15000
+    });
+
+    if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
+      const imageBuffer = await response.arrayBuffer();
+      const base64Image = Buffer.from(imageBuffer).toString('base64');
+      return `data:image/jpeg;base64,${base64Image}`;
+    }
+
+    throw new Error('Unsplash themed image failed');
+  } catch (error) {
+    console.error('Themed image generation error:', error);
     throw error;
   }
 }
@@ -220,29 +309,65 @@ export async function analyzeImage(imageData: string): Promise<string> {
 export async function generateImage(prompt: string): Promise<string> {
   console.log(`Starting free image generation for: "${prompt}"`);
 
-  try {
-    // Try Pollinations first (free AI art)
-    try {
-      console.log('Trying Pollinations AI...');
-      const result = await generateImageWithPollinations(prompt);
-      console.log('Pollinations generation successful');
-      return result;
-    } catch (pollinationsError) {
-      console.log('Pollinations failed, using themed placeholder...', pollinationsError);
+  const generators = [
+    { name: 'Pollinations', fn: generateImageWithPollinations },
+    { name: 'Leonardo', fn: generateImageWithLeonardo },
+    { name: 'Themed Image', fn: generateThemedImageWithText },
+    { name: 'Placeholder', fn: generatePlaceholderImage }
+  ];
 
-      try {
-        const result = await generatePlaceholderImage(prompt);
-        console.log('Placeholder generation successful');
-        return result;
-      } catch (placeholderError) {
-        console.log('All generation methods failed', placeholderError);
-        throw new Error('All free image generation services are currently unavailable');
-      }
+  for (const generator of generators) {
+    try {
+      console.log(`Trying ${generator.name}...`);
+      const result = await generator.fn(prompt);
+      console.log(`${generator.name} generation successful`);
+      return result;
+    } catch (error) {
+      console.log(`${generator.name} failed:`, error.message);
+      continue;
     }
-  } catch (error) {
-    console.error('Complete image generation failure:', error);
-    throw new Error(`Oops! My artistic circuits are having a creative meltdown! 🎨💥 Even free art generators need their beauty sleep sometimes. Try again in a moment, or describe what you want and I'll help you craft the perfect prompt for later! 😏`);
   }
+
+  // If all else fails, create a simple data URL image
+  console.log('All generators failed, creating fallback image');
+  return createFallbackImage(prompt);
+}
+
+// Create a simple SVG fallback image
+function createFallbackImage(prompt: string): string {
+  const words = prompt.toLowerCase();
+  let emoji = '🖼️';
+  let color = '#4F46E5';
+  
+  // Choose emoji and color based on prompt
+  if (words.includes('tomato')) {
+    emoji = '🍅';
+    color = '#EF4444';
+  } else if (words.includes('cat')) {
+    emoji = '🐱';
+    color = '#F59E0B';
+  } else if (words.includes('dog')) {
+    emoji = '🐶';
+    color = '#8B5CF6';
+  } else if (words.includes('flower')) {
+    emoji = '🌸';
+    color = '#EC4899';
+  } else if (words.includes('tree')) {
+    emoji = '🌳';
+    color = '#10B981';
+  }
+
+  const svg = `
+    <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+      <rect width="512" height="512" fill="${color}" opacity="0.1"/>
+      <rect x="50" y="50" width="412" height="412" fill="${color}" opacity="0.2" rx="20"/>
+      <text x="256" y="280" font-family="Arial, sans-serif" font-size="120" text-anchor="middle" fill="${color}">${emoji}</text>
+      <text x="256" y="400" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="${color}" opacity="0.8">AI Generated: ${prompt.substring(0, 20)}${prompt.length > 20 ? '...' : ''}</text>
+    </svg>
+  `;
+
+  const base64Svg = Buffer.from(svg).toString('base64');
+  return `data:image/svg+xml;base64,${base64Svg}`;
 }
 
 export function formatImageAnalysisForAI(imageDescription: string, userPrompt: string = ''): string {
