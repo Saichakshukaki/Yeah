@@ -126,9 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const prompt = content.replace('[IMAGE_GENERATION]', '').trim();
 
         try {
-          console.log(`Starting image generation for: "${prompt}"`);
+          console.log(`Starting free image generation for: "${prompt}"`);
           const imageUrl = await generateImage(prompt);
-          console.log('Image generation successful');
+          console.log('Free image generation successful');
 
           // Create user message
           const userMessage = await storage.createChatMessage({
@@ -138,7 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Create AI message with generated image
-          aiMessageContent = `Here's your generated image for "${prompt}"! 🎨\n\n![Generated Image](${imageUrl})\n\nNot bad for an AI artist, right? Though I do say so myself! 😏`;
+          aiMessageContent = `Here's your image for "${prompt}"! 🎨\n\n![Generated Image](${imageUrl})\n\nCreated using completely free services because, you know, I'm generous like that! 😏 Not bad for free art, right?`;
           const aiMessage = await storage.createChatMessage({
             sessionId,
             role: "assistant",
@@ -154,14 +154,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           return res.json({ userMessage, aiMessage });
         } catch (error) {
-          console.error("Image generation failed:", error);
+          console.error("Free image generation failed:", error);
           const errorMessage = error.message || "Unknown error occurred";
           
-          if (errorMessage.includes('artistic talents')) {
-            aiMessageContent = errorMessage;
-          } else {
-            aiMessageContent = `Well, this is embarrassing! 😅 My artistic side is having a creative crisis right now. The image generation services are being as reliable as a chocolate teapot. Want to try again with a different prompt, or shall I help you craft the perfect description for when my artistic mojo returns? 🎨`;
-          }
+          aiMessageContent = `Well, that's embarrassing! 😅 Even the free image generators are giving me the cold shoulder today. They're probably overloaded with everyone wanting pictures of cats and tomatoes! 🍅 
+
+Want to try again in a moment? Or I can help you craft an amazing description of what you want so you can try other free tools like:
+- DALL-E Mini (free online)
+- Stable Diffusion on Hugging Face
+- Bing Image Creator
+
+Just describe your vision and I'll help make it prompt-perfect! 🎨`;
 
           // Create user message
           const userMessage = await storage.createChatMessage({
