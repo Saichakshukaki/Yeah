@@ -68,18 +68,36 @@ async function analyzeImageWithHuggingFace(imageBase64: string): Promise<string>
       console.log('Gemini vision failed, using basic analysis...');
     }
 
-    // Final fallback: Basic image analysis
+    // Final fallback: Enhanced image analysis
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
     const imageBuffer = Buffer.from(base64Data, 'base64');
     const size = imageBuffer.length;
     
+    // Try to determine image type from base64 header
+    const mimeType = imageBase64.split(';')[0].split(':')[1] || 'unknown';
+    
+    let description = "";
     if (size > 500000) {
-      return "I can see a large, detailed image. It appears to contain substantial visual content, possibly including text, graphics, or detailed imagery.";
+      description = "I can see a large, detailed image";
     } else if (size > 100000) {
-      return "I can see a medium-sized image with visual content. It may contain text, graphics, or other visual elements.";
+      description = "I can see a medium-sized image";
     } else {
-      return "I can see a small image file. It likely contains simple visual content or text.";
+      description = "I can see a small image";
     }
+    
+    description += ` (${mimeType} format, ${Math.round(size/1024)}KB). `;
+    
+    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) {
+      description += "This appears to be a photograph or realistic image.";
+    } else if (mimeType.includes('png')) {
+      description += "This appears to be a digital image, possibly with transparency or graphics.";
+    } else if (mimeType.includes('gif')) {
+      description += "This is an animated or simple graphics image.";
+    } else {
+      description += "The image format suggests it contains visual content.";
+    }
+    
+    return description;
     
   } catch (error) {
     console.error("Image analysis error:", error);

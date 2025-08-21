@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Create AI message with generated image
-          aiMessageContent = `Here's your generated image for "${prompt}":\n\n${imageUrl}`;
+          aiMessageContent = `Here's your generated image for "${prompt}":\n\n![Generated Image](${imageUrl})`;
           const aiMessage = await storage.createChatMessage({
             sessionId,
             role: "assistant",
@@ -154,6 +154,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
           console.error("Image generation failed:", error);
           aiMessageContent = "Sorry, my artistic talents are offline right now! Even Picasso had bad days. 🎨 Try again in a moment.";
+
+          // Create user message
+          const userMessage = await storage.createChatMessage({
+            sessionId,
+            role: "user",
+            content: `Generate an image: ${prompt}`,
+          });
+
+          // Create AI message with error
+          const aiMessage = await storage.createChatMessage({
+            sessionId,
+            role: "assistant",
+            content: aiMessageContent,
+          });
+
+          return res.json({ userMessage, aiMessage });
         }
       }
 
