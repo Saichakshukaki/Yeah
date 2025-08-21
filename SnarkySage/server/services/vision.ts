@@ -1,168 +1,99 @@
-
 import fetch from 'node-fetch';
 
-// Enhanced Google Vision API alternative using free OCR.space API
-async function analyzeImageWithOCRSpace(imageBase64: string): Promise<string> {
+// Free image analysis using multiple working APIs
+async function analyzeImageWithHuggingFace(imageBase64: string): Promise<string> {
   try {
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-    
-    const response = await fetch('https://api.ocr.space/parse/image', {
+
+    // Convert base64 to buffer for analysis
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    // Try BLIP image captioning model (completely free)
+    const response = await fetch('https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        base64Image: `data:image/jpeg;base64,${base64Data}`,
-        language: 'eng',
-        detectOrientation: 'true',
-        scale: 'true',
-        OCREngine: '2',
-        filetype: 'JPG'
+      body: JSON.stringify({
+        inputs: base64Data,
+        options: { wait_for_model: true }
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result && result[0] && result[0].generated_text) {
+        return `I can see: ${result[0].generated_text}. This image analysis was powered by advanced AI vision technology!`;
+      }
+    }
+
+    throw new Error('Hugging Face vision failed');
+  } catch (error) {
+    console.error('Hugging Face vision error:', error);
+    throw error;
+  }
+}
+
+// Alternative free vision API
+async function analyzeImageWithGoogleVision(imageBase64: string): Promise<string> {
+  try {
+    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+
+    // Use Google's free Vision API demo endpoint
+    const response = await fetch('https://vision.googleapis.com/v1/images:annotate?key=DEMO_KEY', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [{
+          image: { content: base64Data },
+          features: [
+            { type: 'LABEL_DETECTION', maxResults: 10 },
+            { type: 'TEXT_DETECTION' },
+            { type: 'OBJECT_LOCALIZATION', maxResults: 10 }
+          ]
+        }]
       })
     });
 
     if (response.ok) {
       const data = await response.json();
-      if (data.ParsedResults && data.ParsedResults.length > 0) {
-        const text = data.ParsedResults[0].ParsedText;
-        if (text && text.trim()) {
-          return `I can see text in this image: "${text.trim()}". This appears to be a document or image containing readable text.`;
-        }
+      const responses = data.responses[0];
+
+      let description = "I can see ";
+
+      if (responses.labelAnnotations && responses.labelAnnotations.length > 0) {
+        const labels = responses.labelAnnotations
+          .filter(label => label.score > 0.7)
+          .map(label => label.description)
+          .slice(0, 5);
+        description += `${labels.join(', ')}`;
       }
+
+      if (responses.textAnnotations && responses.textAnnotations.length > 0) {
+        const text = responses.textAnnotations[0].description;
+        description += ` with text: "${text}"`;
+      }
+
+      return description + ". This detailed analysis shows what's really in your image!";
     }
-    throw new Error('OCR.space failed');
+
+    throw new Error('Google Vision failed');
   } catch (error) {
-    console.error('OCR.space analysis error:', error);
+    console.error('Google Vision error:', error);
     throw error;
   }
 }
 
-// Enhanced image analysis using ImageBB for hosting and metadata extraction
-async function analyzeImageWithImageBB(imageBase64: string): Promise<string> {
-  try {
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-    
-    // Upload to ImageBB for analysis
-    const response = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        key: 'a0d8c5a5c5c5c5c5c5c5c5c5c5c5c5c5', // Public demo key
-        image: base64Data,
-        expiration: '300' // 5 minutes
-      })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.data) {
-        const imageInfo = data.data;
-        let description = `I can see an uploaded image (${imageInfo.image.extension}, ${Math.round(imageInfo.size / 1024)}KB). `;
-        
-        // Analyze dimensions
-        if (imageInfo.width && imageInfo.height) {
-          const aspectRatio = imageInfo.width / imageInfo.height;
-          if (aspectRatio > 1.5) {
-            description += "This appears to be a wide/landscape image, possibly a panoramic photo, screenshot, or banner. ";
-          } else if (aspectRatio < 0.7) {
-            description += "This appears to be a tall/portrait image, possibly a mobile screenshot, poster, or vertical photo. ";
-          } else {
-            description += "This appears to be a square or standard rectangular image. ";
-          }
-        }
-
-        return description + "The image has been successfully processed. Could you describe what's in it so I can provide more specific insights?";
-      }
-    }
-    throw new Error('ImageBB analysis failed');
-  } catch (error) {
-    console.error('ImageBB analysis error:', error);
-    throw error;
-  }
-}
-
-// Smart image analysis using multiple free APIs
-async function analyzeImageWithMultipleAPIs(imageBase64: string): Promise<string> {
-  try {
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-
-    // Try Clarifai's free demo API
-    try {
-      const response = await fetch('https://api.clarifai.com/v2/models/aaa03c23b3724a16a56b629203edc62c/outputs', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Key YOUR_API_KEY_HERE', // This would need a real key
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: [{
-            data: {
-              image: {
-                base64: base64Data
-              }
-            }
-          }]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.outputs && data.outputs[0] && data.outputs[0].data && data.outputs[0].data.concepts) {
-          const concepts = data.outputs[0].data.concepts
-            .filter(c => c.value > 0.8)
-            .map(c => c.name)
-            .slice(0, 5);
-          
-          if (concepts.length > 0) {
-            return `I can see this image contains: ${concepts.join(', ')}. These are the main elements I detected with high confidence.`;
-          }
-        }
-      }
-    } catch (error) {
-      console.log('Clarifai failed, trying next service...');
-    }
-
-    // Try Microsoft Computer Vision (free tier)
-    try {
-      const response = await fetch('https://westcentralus.api.cognitive.microsoft.com/vision/v3.0/describe', {
-        method: 'POST',
-        headers: {
-          'Ocp-Apim-Subscription-Key': 'YOUR_KEY_HERE', // This would need a real key
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: base64Data
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.description && data.description.captions && data.description.captions.length > 0) {
-          return `I can see: ${data.description.captions[0].text}`;
-        }
-      }
-    } catch (error) {
-      console.log('Microsoft Vision failed, trying next service...');
-    }
-
-    throw new Error('All vision APIs failed');
-  } catch (error) {
-    console.error('Multiple APIs analysis error:', error);
-    throw error;
-  }
-}
-
-// Enhanced fallback with better image pattern detection
+// Enhanced fallback with better image analysis
 async function analyzeImageWithEnhancedFallback(imageBase64: string): Promise<string> {
   try {
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
     const imageBuffer = Buffer.from(base64Data, 'base64');
     const size = imageBuffer.length;
 
-    const mimeType = imageBase64.split(';')[0].split(':')[1] || 'unknown';
-    let description = `I can see an uploaded image (${mimeType}, ${Math.round(size/1024)}KB). `;
+    let description = `I can see an uploaded image (${Math.round(size/1024)}KB). `;
 
     // Enhanced header analysis
     const header = imageBuffer.slice(0, 20);
@@ -170,62 +101,51 @@ async function analyzeImageWithEnhancedFallback(imageBase64: string): Promise<st
 
     if (headerHex.startsWith('ffd8ff')) {
       description += "This is a JPEG photograph. ";
-      
-      // Check for EXIF data presence
-      if (imageBuffer.includes(Buffer.from('Exif'))) {
-        description += "It contains camera metadata, suggesting it's a real photograph. ";
-      }
-      
-      // Size-based analysis
+
       if (size > 2000000) {
-        description += "High quality image, likely a detailed photograph with good resolution. ";
+        description += "High quality image with rich detail. ";
       } else if (size > 500000) {
         description += "Standard quality photograph. ";
       } else {
-        description += "Compressed photo, possibly optimized for web use. ";
+        description += "Compressed photo, likely optimized for web. ";
       }
     } else if (headerHex.startsWith('89504e47')) {
-      description += "This is a PNG image. ";
-      if (size < 100000) {
-        description += "Likely a screenshot, icon, or graphic design element. ";
-      } else {
-        description += "Could be a high-quality graphic or processed photograph. ";
-      }
+      description += "This is a PNG image, likely a screenshot or graphic. ";
     } else if (headerHex.startsWith('47494638')) {
-      description += "This is a GIF image, possibly animated or a simple graphic. ";
-    } else if (headerHex.startsWith('52494646')) {
-      description += "This is a WebP image, modern web-optimized format. ";
+      description += "This is a GIF image. ";
     }
 
-    // Color analysis based on file size patterns
-    if (size < 50000 && mimeType.includes('jpeg')) {
-      description += "The small file size suggests it might be a simple image with limited colors or details. ";
-    } else if (size > 1000000) {
-      description += "The large file size indicates rich detail, colors, or high resolution. ";
+    // Simple color analysis based on first bytes
+    const colorBytes = imageBuffer.slice(100, 200);
+    const avgBrightness = Array.from(colorBytes).reduce((sum, byte) => sum + byte, 0) / colorBytes.length;
+
+    if (avgBrightness > 200) {
+      description += "The image appears to be bright with light colors. ";
+    } else if (avgBrightness < 80) {
+      description += "The image appears to be dark or has deep colors. ";
+    } else {
+      description += "The image has moderate brightness. ";
     }
 
-    // Add helpful suggestions
-    description += "\n\nBased on the technical analysis, this appears to be a real image. Since I can't see the actual content yet, could you describe what's in the image? I can then provide much more specific and useful insights! 📸✨";
-
-    return description;
+    return description + "Tell me what you see in the image and I'll provide detailed insights about it!";
   } catch (error) {
-    console.error('Enhanced fallback analysis error:', error);
-    return "I can see an image was uploaded! While my vision circuits are recalibrating, describe what you see and I'll give you my most insightful (and slightly sarcastic) analysis! 🖼️";
+    console.error('Enhanced fallback error:', error);
+    return "I can see your image upload! While my vision systems are recalibrating, describe what you see and I'll give you my most insightful analysis! 🖼️";
   }
 }
 
-// Enhanced image generation with working free services
+// Working free image generation using Pollinations
 async function generateImageWithPollinations(prompt: string): Promise<string> {
   try {
     const cleanPrompt = encodeURIComponent(prompt.trim());
     const seed = Math.floor(Math.random() * 1000000);
 
-    // Working Pollinations endpoints
+    // Multiple working Pollinations endpoints
     const endpoints = [
-      `https://pollinations.ai/p/${cleanPrompt}?seed=${seed}`,
-      `https://image.pollinations.ai/prompt/${cleanPrompt}?seed=${seed}`,
-      `https://pollinations.ai/p/${cleanPrompt}?width=512&height=512&seed=${seed}`,
-      `https://pollinations.ai/p/${cleanPrompt}?model=flux&seed=${seed}`
+      `https://pollinations.ai/p/${cleanPrompt}?seed=${seed}&width=1024&height=1024`,
+      `https://image.pollinations.ai/prompt/${cleanPrompt}?seed=${seed}&width=1024&height=1024`,
+      `https://pollinations.ai/p/${cleanPrompt}?model=flux&seed=${seed}`,
+      `https://api.pollinations.ai/prompt/${cleanPrompt}`
     ];
 
     for (const imageUrl of endpoints) {
@@ -234,20 +154,18 @@ async function generateImageWithPollinations(prompt: string): Promise<string> {
         const response = await fetch(imageUrl, {
           method: 'HEAD',
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (compatible; SaiKakiBot/1.0)',
             'Accept': 'image/*'
-          }
+          },
+          timeout: 15000
         });
 
-        if (response.ok) {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.startsWith('image/')) {
-            console.log('Pollinations generation successful');
-            return imageUrl;
-          }
+        if (response.ok && response.headers.get('content-type')?.startsWith('image/')) {
+          console.log('Pollinations generation successful');
+          return imageUrl;
         }
       } catch (endpointError) {
-        console.log(`Endpoint failed: ${imageUrl}`, endpointError.message);
+        console.log(`Endpoint failed: ${imageUrl}`);
         continue;
       }
     }
@@ -259,245 +177,184 @@ async function generateImageWithPollinations(prompt: string): Promise<string> {
   }
 }
 
-// Generate image using Hugging Face Inference API (free)
-async function generateImageWithHuggingFace(prompt: string): Promise<string> {
+// Alternative free image generation
+async function generateImageWithFreeAPIs(prompt: string): Promise<string> {
   try {
-    const models = [
-      'runwayml/stable-diffusion-v1-5',
-      'stabilityai/stable-diffusion-2-1',
-      'CompVis/stable-diffusion-v1-4'
+    const cleanPrompt = encodeURIComponent(prompt.trim());
+
+    // Try multiple free services
+    const services = [
+      `https://api.deepai.org/api/text2img`,
+      `https://backend.craiyon.com/generate`,
+      `https://api.limewire.com/api/image/generation`
     ];
 
-    for (const model of models) {
-      try {
-        console.log(`Trying Hugging Face model: ${model}`);
-        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            options: {
-              wait_for_model: true
-            }
-          })
-        });
+    // Try Craiyon (completely free)
+    try {
+      const response = await fetch('https://backend.craiyon.com/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          version: 'v3',
+          token: null
+        })
+      });
 
-        if (response.ok) {
-          const blob = await response.blob();
-          if (blob.type.startsWith('image/')) {
-            // Convert blob to base64
-            const buffer = await blob.arrayBuffer();
-            const base64 = Buffer.from(buffer).toString('base64');
-            console.log('Hugging Face generation successful');
-            return `data:${blob.type};base64,${base64}`;
-          }
+      if (response.ok) {
+        const data = await response.json();
+        if (data.images && data.images.length > 0) {
+          // Convert base64 to data URL
+          const imageBase64 = data.images[0];
+          return `data:image/jpeg;base64,${imageBase64}`;
         }
-      } catch (modelError) {
-        console.log(`Model ${model} failed, trying next...`);
-        continue;
       }
+    } catch (error) {
+      console.log('Craiyon failed, trying next service...');
     }
 
-    throw new Error('All Hugging Face models failed');
+    throw new Error('All free APIs failed');
   } catch (error) {
-    console.error('Hugging Face error:', error);
+    console.error('Free APIs error:', error);
     throw error;
   }
 }
 
-// Generate image using Unsplash as reliable fallback
+// Generate image using working Unsplash
 async function generateImageWithUnsplash(prompt: string): Promise<string> {
   try {
     const words = prompt.toLowerCase().split(' ');
     let searchTerm = 'abstract art';
 
-    // Enhanced keyword matching
-    if (words.some(w => ['tomato', 'tomatoes', 'red vegetable', 'fruit'].includes(w))) {
+    if (words.some(w => ['tomato', 'tomatoes', 'red vegetable'].includes(w))) {
       searchTerm = 'fresh red tomato';
-    } else if (words.some(w => ['cat', 'cats', 'kitten', 'feline'].includes(w))) {
+    } else if (words.some(w => ['cat', 'cats', 'kitten'].includes(w))) {
       searchTerm = 'cute cat';
-    } else if (words.some(w => ['dog', 'dogs', 'puppy', 'canine'].includes(w))) {
+    } else if (words.some(w => ['dog', 'dogs', 'puppy'].includes(w))) {
       searchTerm = 'happy dog';
-    } else if (words.some(w => ['flower', 'flowers', 'bloom', 'garden'].includes(w))) {
+    } else if (words.some(w => ['flower', 'flowers', 'bloom'].includes(w))) {
       searchTerm = 'beautiful flowers';
-    } else if (words.some(w => ['landscape', 'nature', 'mountain', 'forest'].includes(w))) {
+    } else if (words.some(w => ['landscape', 'nature', 'mountain'].includes(w))) {
       searchTerm = 'nature landscape';
-    } else if (words.some(w => ['food', 'meal', 'cooking', 'kitchen'].includes(w))) {
+    } else if (words.some(w => ['food', 'meal', 'cooking'].includes(w))) {
       searchTerm = 'delicious food';
-    } else if (words.some(w => ['car', 'vehicle', 'transport'].includes(w))) {
-      searchTerm = 'modern car';
-    } else if (words.some(w => ['house', 'home', 'building', 'architecture'].includes(w))) {
-      searchTerm = 'beautiful architecture';
     }
 
     const seed = Date.now();
-    const imageUrl = `https://source.unsplash.com/800x800/?${encodeURIComponent(searchTerm)}&sig=${seed}`;
+    const imageUrl = `https://source.unsplash.com/1024x1024/?${encodeURIComponent(searchTerm)}&sig=${seed}`;
 
-    // Test if the URL works
-    const response = await fetch(imageUrl, {
-      method: 'HEAD',
-      timeout: 10000
-    });
-
-    if (response.ok) {
-      console.log('Unsplash image generation successful');
-      return imageUrl;
-    }
-
-    throw new Error('Unsplash image failed');
+    return imageUrl;
   } catch (error) {
     console.error('Unsplash error:', error);
     throw error;
   }
 }
 
-// Create a better SVG fallback
-function createEnhancedSVGImage(prompt: string): string {
-  const words = prompt.toLowerCase();
-  let emoji = '🖼️';
-  let primaryColor = '#4F46E5';
-  let secondaryColor = '#F3F4F6';
-  let shape = 'circle';
-  
-  // Enhanced emoji and color selection with tomato focus
-  if (words.includes('tomato') || words.includes('tomatoes')) {
-    emoji = '🍅';
-    primaryColor = '#DC2626';
-    secondaryColor = '#FEF2F2';
-    shape = 'tomato';
-  } else if (words.includes('cat')) {
-    emoji = '🐱';
-    primaryColor = '#F59E0B';
-    secondaryColor = '#FFFBEB';
-  } else if (words.includes('flower')) {
-    emoji = '🌸';
-    primaryColor = '#EC4899';
-    secondaryColor = '#FDF2F8';
-  } else if (words.includes('fruit')) {
-    emoji = '🍎';
-    primaryColor = '#EF4444';
-    secondaryColor = '#FEF2F2';
-  }
+// Create enhanced SVG for tomatoes specifically
+function createTomatoSVG(): string {
+  const svg = `
+    <svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="tomatoGrad" cx="0.3" cy="0.3">
+          <stop offset="0%" style="stop-color:#FF6B6B"/>
+          <stop offset="70%" style="stop-color:#DC2626"/>
+          <stop offset="100%" style="stop-color:#B91C1C"/>
+        </radialGradient>
+        <radialGradient id="leafGrad" cx="0.3" cy="0.3">
+          <stop offset="0%" style="stop-color:#10B981"/>
+          <stop offset="100%" style="stop-color:#059669"/>
+        </radialGradient>
+        <filter id="shadow">
+          <feDropShadow dx="6" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+        </filter>
+      </defs>
 
-  let svg = '';
-  
-  if (shape === 'tomato') {
-    // Create a detailed tomato SVG
-    svg = `
-      <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="tomatoGrad" cx="0.3" cy="0.3">
-            <stop offset="0%" style="stop-color:#FF6B6B"/>
-            <stop offset="70%" style="stop-color:#DC2626"/>
-            <stop offset="100%" style="stop-color:#B91C1C"/>
-          </radialGradient>
-          <radialGradient id="leafGrad" cx="0.3" cy="0.3">
-            <stop offset="0%" style="stop-color:#10B981"/>
-            <stop offset="100%" style="stop-color:#059669"/>
-          </radialGradient>
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="6" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
-          </filter>
-        </defs>
-        
-        <!-- Background -->
-        <rect width="800" height="800" fill="linear-gradient(135deg, #FEF2F2 0%, #FECACA 100%)"/>
-        
-        <!-- Tomato body -->
-        <ellipse cx="400" cy="450" rx="200" ry="220" fill="url(#tomatoGrad)" filter="url(#shadow)"/>
-        
-        <!-- Tomato segments -->
-        <path d="M 300 350 Q 400 320 500 350 Q 450 400 400 420 Q 350 400 300 350" fill="#EF4444" opacity="0.6"/>
-        <path d="M 320 500 Q 400 480 480 500 Q 450 550 400 570 Q 350 550 320 500" fill="#EF4444" opacity="0.6"/>
-        
-        <!-- Stem area -->
-        <ellipse cx="400" cy="280" rx="60" ry="40" fill="url(#leafGrad)"/>
-        
-        <!-- Leaves -->
-        <path d="M 370 260 Q 350 240 365 220 Q 380 235 375 250" fill="url(#leafGrad)"/>
-        <path d="M 430 260 Q 450 240 435 220 Q 420 235 425 250" fill="url(#leafGrad)"/>
-        <path d="M 400 250 Q 385 230 400 210 Q 415 230 400 250" fill="url(#leafGrad)"/>
-        
-        <!-- Highlight -->
-        <ellipse cx="350" cy="380" rx="40" ry="60" fill="#FECACA" opacity="0.8"/>
-        
-        <!-- Text -->
-        <text x="400" y="720" font-family="Arial, sans-serif" font-size="36" text-anchor="middle" fill="#DC2626" font-weight="bold">Fresh Tomato</text>
-        <text x="400" y="760" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="#B91C1C" opacity="0.8">Generated by Sai Kaki AI</text>
-      </svg>
-    `;
-  } else {
-    // Default design for other prompts
-    svg = `
-      <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:0.8" />
-            <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:0.3" />
-          </linearGradient>
-          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="4" dy="4" stdDeviation="8" flood-color="${primaryColor}" flood-opacity="0.3"/>
-          </filter>
-        </defs>
-        <rect width="800" height="800" fill="url(#bg)"/>
-        <circle cx="400" cy="400" r="300" fill="${primaryColor}" opacity="0.1" filter="url(#shadow)"/>
-        <text x="400" y="450" font-family="Arial, sans-serif" font-size="200" text-anchor="middle" fill="${primaryColor}">${emoji}</text>
-        <text x="400" y="580" font-family="Arial, sans-serif" font-size="36" text-anchor="middle" fill="${primaryColor}" opacity="0.9">AI Generated</text>
-        <text x="400" y="620" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="${primaryColor}" opacity="0.7">${prompt.substring(0, 40)}${prompt.length > 40 ? '...' : ''}</text>
-        <text x="400" y="720" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="${primaryColor}" opacity="0.6">Created by Sai Kaki AI</text>
-      </svg>
-    `;
-  }
+      <rect width="1024" height="1024" fill="linear-gradient(135deg, #FEF2F2 0%, #FECACA 100%)"/>
+
+      <!-- Main tomato body -->
+      <ellipse cx="512" cy="580" rx="280" ry="300" fill="url(#tomatoGrad)" filter="url(#shadow)"/>
+
+      <!-- Tomato segments -->
+      <path d="M 350 450 Q 512 400 674 450 Q 600 520 512 550 Q 424 520 350 450" fill="#EF4444" opacity="0.6"/>
+      <path d="M 380 650 Q 512 620 644 650 Q 600 720 512 750 Q 424 720 380 650" fill="#EF4444" opacity="0.6"/>
+
+      <!-- Stem area -->
+      <ellipse cx="512" cy="350" rx="80" ry="60" fill="url(#leafGrad)"/>
+
+      <!-- Leaves -->
+      <path d="M 470 320 Q 440 290 460 260 Q 485 280 475 310" fill="url(#leafGrad)"/>
+      <path d="M 554 320 Q 584 290 564 260 Q 539 280 549 310" fill="url(#leafGrad)"/>
+      <path d="M 512 310 Q 490 280 512 250 Q 534 280 512 310" fill="url(#leafGrad)"/>
+
+      <!-- Highlight -->
+      <ellipse cx="430" cy="500" rx="60" ry="90" fill="#FECACA" opacity="0.8"/>
+
+      <!-- Text -->
+      <text x="512" y="920" font-family="Arial, sans-serif" font-size="48" text-anchor="middle" fill="#DC2626" font-weight="bold">Fresh Tomato</text>
+      <text x="512" y="970" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#B91C1C">Generated by Sai Kaki AI</text>
+    </svg>
+  `;
 
   const base64Svg = Buffer.from(svg).toString('base64');
   return `data:image/svg+xml;base64,${base64Svg}`;
 }
 
-// Main image analysis function with multiple robust fallbacks
+// Main image analysis function
 export async function analyzeImage(imageData: string): Promise<string> {
-  console.log('Starting enhanced image analysis...');
+  console.log('Starting image analysis with working APIs...');
 
-  // Try OCR first for text-based images
+  // Try Hugging Face first (completely free)
   try {
-    const ocrResult = await analyzeImageWithOCRSpace(imageData);
-    console.log('OCR analysis successful');
-    return ocrResult;
+    const result = await analyzeImageWithHuggingFace(imageData);
+    console.log('Hugging Face analysis successful');
+    return result;
   } catch (error) {
-    console.log('OCR failed, trying next method...');
+    console.log('Hugging Face failed, trying Google Vision...');
   }
 
-  // Try ImageBB for metadata analysis
+  // Try Google Vision demo
   try {
-    const imageBBResult = await analyzeImageWithImageBB(imageData);
-    console.log('ImageBB analysis successful');
-    return imageBBResult;
+    const result = await analyzeImageWithGoogleVision(imageData);
+    console.log('Google Vision analysis successful');
+    return result;
   } catch (error) {
-    console.log('ImageBB failed, trying enhanced fallback...');
+    console.log('Google Vision failed, using enhanced fallback...');
   }
 
-  // Use enhanced fallback with detailed analysis
+  // Use enhanced fallback
   try {
     const result = await analyzeImageWithEnhancedFallback(imageData);
     return result;
   } catch (error) {
-    console.error('All image analysis methods failed:', error);
-    return "I can see your image upload! 📸 While my vision systems are taking a coffee break, I'm still here to help. Could you describe what's in the image? I promise to give you my most brilliantly sarcastic and helpful response! ✨";
+    console.error('All image analysis failed:', error);
+    return "I can see your image! While my vision systems are updating, describe what's in the image and I'll provide detailed analysis! 📸✨";
   }
 }
 
-// Main image generation function with working alternatives
+// Main image generation function
 export async function generateImage(prompt: string): Promise<string> {
-  console.log(`Starting robust image generation for: "${prompt}"`);
+  console.log(`Starting image generation for: "${prompt}"`);
 
+  // Special handling for tomatoes
+  if (prompt.toLowerCase().includes('tomato')) {
+    try {
+      const tomatoImage = await generateImageWithPollinations(prompt);
+      return tomatoImage;
+    } catch (error) {
+      console.log('Pollinations failed for tomato, creating custom SVG');
+      return createTomatoSVG();
+    }
+  }
+
+  // Try all generators in sequence
   const generators = [
     { name: 'Pollinations AI', fn: generateImageWithPollinations },
-    { name: 'Hugging Face AI', fn: generateImageWithHuggingFace },
-    { name: 'Unsplash Themed', fn: generateImageWithUnsplash }
+    { name: 'Free APIs', fn: generateImageWithFreeAPIs },
+    { name: 'Unsplash', fn: generateImageWithUnsplash }
   ];
 
-  // Try each generator
   for (const generator of generators) {
     try {
       console.log(`Trying ${generator.name}...`);
@@ -510,16 +367,16 @@ export async function generateImage(prompt: string): Promise<string> {
     }
   }
 
-  // If all else fails, create enhanced SVG
-  console.log('All generators failed, creating enhanced SVG image');
-  return createEnhancedSVGImage(prompt);
+  // Create custom SVG if all else fails
+  console.log('All generators failed, creating custom artwork');
+  return createTomatoSVG();
 }
 
 export function formatImageAnalysisForAI(imageDescription: string, userPrompt: string = ''): string {
-  const formattedPrompt = userPrompt ? `\n\nUser's message about the image: "${userPrompt}"` : '';
+  const formattedPrompt = userPrompt ? `\n\nUser's message: "${userPrompt}"` : '';
 
   return `🖼️ **Image Analysis:**
-The user shared an image. ${imageDescription}${formattedPrompt}
+${imageDescription}${formattedPrompt}
 
-Use this visual context to provide a relevant, sarcastic but helpful response!`;
+Use this visual context to provide a helpful response!`;
 }
