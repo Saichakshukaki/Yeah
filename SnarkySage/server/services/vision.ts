@@ -220,30 +220,28 @@ async function generateImageWithPollinations(prompt: string): Promise<string> {
     const cleanPrompt = encodeURIComponent(prompt.trim());
     const seed = Math.floor(Math.random() * 1000000);
 
-    // Updated working Pollinations endpoints
+    // Working Pollinations endpoints
     const endpoints = [
-      `https://pollinations.ai/p/${cleanPrompt}?width=768&height=768&seed=${seed}&model=flux&enhance=true`,
-      `https://image.pollinations.ai/prompt/${cleanPrompt}?width=768&height=768&seed=${seed}&model=turbo`,
+      `https://pollinations.ai/p/${cleanPrompt}?seed=${seed}`,
+      `https://image.pollinations.ai/prompt/${cleanPrompt}?seed=${seed}`,
       `https://pollinations.ai/p/${cleanPrompt}?width=512&height=512&seed=${seed}`,
-      `https://image.pollinations.ai/prompt/${cleanPrompt}?width=512&height=512&seed=${seed}`
+      `https://pollinations.ai/p/${cleanPrompt}?model=flux&seed=${seed}`
     ];
 
     for (const imageUrl of endpoints) {
       try {
         console.log(`Trying Pollinations: ${imageUrl}`);
         const response = await fetch(imageUrl, {
-          method: 'GET',
+          method: 'HEAD',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'image/*'
-          },
-          timeout: 30000
+          }
         });
 
         if (response.ok) {
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.startsWith('image/')) {
-            // Return the direct URL instead of base64 to avoid size issues
             console.log('Pollinations generation successful');
             return imageUrl;
           }
@@ -257,6 +255,54 @@ async function generateImageWithPollinations(prompt: string): Promise<string> {
     throw new Error('All Pollinations endpoints failed');
   } catch (error) {
     console.error('Pollinations error:', error);
+    throw error;
+  }
+}
+
+// Generate image using Hugging Face Inference API (free)
+async function generateImageWithHuggingFace(prompt: string): Promise<string> {
+  try {
+    const models = [
+      'runwayml/stable-diffusion-v1-5',
+      'stabilityai/stable-diffusion-2-1',
+      'CompVis/stable-diffusion-v1-4'
+    ];
+
+    for (const model of models) {
+      try {
+        console.log(`Trying Hugging Face model: ${model}`);
+        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            options: {
+              wait_for_model: true
+            }
+          })
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          if (blob.type.startsWith('image/')) {
+            // Convert blob to base64
+            const buffer = await blob.arrayBuffer();
+            const base64 = Buffer.from(buffer).toString('base64');
+            console.log('Hugging Face generation successful');
+            return `data:${blob.type};base64,${base64}`;
+          }
+        }
+      } catch (modelError) {
+        console.log(`Model ${model} failed, trying next...`);
+        continue;
+      }
+    }
+
+    throw new Error('All Hugging Face models failed');
+  } catch (error) {
+    console.error('Hugging Face error:', error);
     throw error;
   }
 }
@@ -313,45 +359,97 @@ function createEnhancedSVGImage(prompt: string): string {
   let emoji = '🖼️';
   let primaryColor = '#4F46E5';
   let secondaryColor = '#F3F4F6';
-  let bgGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  let shape = 'circle';
   
-  // Enhanced emoji and color selection
-  if (words.includes('tomato')) {
+  // Enhanced emoji and color selection with tomato focus
+  if (words.includes('tomato') || words.includes('tomatoes')) {
     emoji = '🍅';
-    primaryColor = '#EF4444';
+    primaryColor = '#DC2626';
     secondaryColor = '#FEF2F2';
-    bgGradient = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)';
+    shape = 'tomato';
   } else if (words.includes('cat')) {
     emoji = '🐱';
     primaryColor = '#F59E0B';
     secondaryColor = '#FFFBEB';
-    bgGradient = 'linear-gradient(135deg, #ffa726 0%, #fb8c00 100%)';
   } else if (words.includes('flower')) {
     emoji = '🌸';
     primaryColor = '#EC4899';
     secondaryColor = '#FDF2F8';
-    bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+  } else if (words.includes('fruit')) {
+    emoji = '🍎';
+    primaryColor = '#EF4444';
+    secondaryColor = '#FEF2F2';
   }
 
-  const svg = `
-    <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:0.8" />
-          <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:0.3" />
-        </linearGradient>
-        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="4" dy="4" stdDeviation="8" flood-color="${primaryColor}" flood-opacity="0.3"/>
-        </filter>
-      </defs>
-      <rect width="800" height="800" fill="url(#bg)"/>
-      <circle cx="400" cy="400" r="300" fill="${primaryColor}" opacity="0.1" filter="url(#shadow)"/>
-      <text x="400" y="450" font-family="Arial, sans-serif" font-size="200" text-anchor="middle" fill="${primaryColor}">${emoji}</text>
-      <text x="400" y="580" font-family="Arial, sans-serif" font-size="36" text-anchor="middle" fill="${primaryColor}" opacity="0.9">AI Generated</text>
-      <text x="400" y="620" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="${primaryColor}" opacity="0.7">${prompt.substring(0, 40)}${prompt.length > 40 ? '...' : ''}</text>
-      <text x="400" y="720" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="${primaryColor}" opacity="0.6">Created by Sai Kaki AI</text>
-    </svg>
-  `;
+  let svg = '';
+  
+  if (shape === 'tomato') {
+    // Create a detailed tomato SVG
+    svg = `
+      <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="tomatoGrad" cx="0.3" cy="0.3">
+            <stop offset="0%" style="stop-color:#FF6B6B"/>
+            <stop offset="70%" style="stop-color:#DC2626"/>
+            <stop offset="100%" style="stop-color:#B91C1C"/>
+          </radialGradient>
+          <radialGradient id="leafGrad" cx="0.3" cy="0.3">
+            <stop offset="0%" style="stop-color:#10B981"/>
+            <stop offset="100%" style="stop-color:#059669"/>
+          </radialGradient>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="6" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+          </filter>
+        </defs>
+        
+        <!-- Background -->
+        <rect width="800" height="800" fill="linear-gradient(135deg, #FEF2F2 0%, #FECACA 100%)"/>
+        
+        <!-- Tomato body -->
+        <ellipse cx="400" cy="450" rx="200" ry="220" fill="url(#tomatoGrad)" filter="url(#shadow)"/>
+        
+        <!-- Tomato segments -->
+        <path d="M 300 350 Q 400 320 500 350 Q 450 400 400 420 Q 350 400 300 350" fill="#EF4444" opacity="0.6"/>
+        <path d="M 320 500 Q 400 480 480 500 Q 450 550 400 570 Q 350 550 320 500" fill="#EF4444" opacity="0.6"/>
+        
+        <!-- Stem area -->
+        <ellipse cx="400" cy="280" rx="60" ry="40" fill="url(#leafGrad)"/>
+        
+        <!-- Leaves -->
+        <path d="M 370 260 Q 350 240 365 220 Q 380 235 375 250" fill="url(#leafGrad)"/>
+        <path d="M 430 260 Q 450 240 435 220 Q 420 235 425 250" fill="url(#leafGrad)"/>
+        <path d="M 400 250 Q 385 230 400 210 Q 415 230 400 250" fill="url(#leafGrad)"/>
+        
+        <!-- Highlight -->
+        <ellipse cx="350" cy="380" rx="40" ry="60" fill="#FECACA" opacity="0.8"/>
+        
+        <!-- Text -->
+        <text x="400" y="720" font-family="Arial, sans-serif" font-size="36" text-anchor="middle" fill="#DC2626" font-weight="bold">Fresh Tomato</text>
+        <text x="400" y="760" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="#B91C1C" opacity="0.8">Generated by Sai Kaki AI</text>
+      </svg>
+    `;
+  } else {
+    // Default design for other prompts
+    svg = `
+      <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${primaryColor};stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:${secondaryColor};stop-opacity:0.3" />
+          </linearGradient>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="4" dy="4" stdDeviation="8" flood-color="${primaryColor}" flood-opacity="0.3"/>
+          </filter>
+        </defs>
+        <rect width="800" height="800" fill="url(#bg)"/>
+        <circle cx="400" cy="400" r="300" fill="${primaryColor}" opacity="0.1" filter="url(#shadow)"/>
+        <text x="400" y="450" font-family="Arial, sans-serif" font-size="200" text-anchor="middle" fill="${primaryColor}">${emoji}</text>
+        <text x="400" y="580" font-family="Arial, sans-serif" font-size="36" text-anchor="middle" fill="${primaryColor}" opacity="0.9">AI Generated</text>
+        <text x="400" y="620" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="${primaryColor}" opacity="0.7">${prompt.substring(0, 40)}${prompt.length > 40 ? '...' : ''}</text>
+        <text x="400" y="720" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="${primaryColor}" opacity="0.6">Created by Sai Kaki AI</text>
+      </svg>
+    `;
+  }
 
   const base64Svg = Buffer.from(svg).toString('base64');
   return `data:image/svg+xml;base64,${base64Svg}`;
@@ -395,6 +493,7 @@ export async function generateImage(prompt: string): Promise<string> {
 
   const generators = [
     { name: 'Pollinations AI', fn: generateImageWithPollinations },
+    { name: 'Hugging Face AI', fn: generateImageWithHuggingFace },
     { name: 'Unsplash Themed', fn: generateImageWithUnsplash }
   ];
 
