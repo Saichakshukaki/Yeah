@@ -1,7 +1,19 @@
-run = "npm run dev"
+run = "cd SnarkySage && npm run dev"
 [nix]
 channel = "stable-25_05"
 packages = ["unzip"]
 
 [deployment]
 run = ["sh", "-c", "npm run dev"]
+
+[workflows]
+runButton = "Run"
+
+[[workflows.workflow]]
+name = "Run"
+author = 33364283
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd SnarkySage && npm run dev"
