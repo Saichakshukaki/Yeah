@@ -67,6 +67,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stream a message and get AI response via SSE
+  app.post("/api/chat/sessions/:id/messages/stream", async (req, res) => {
+    try {
+      const sessionId = req.params.id;
+      const messageSchema = z.object({
+        content: z.string().min(1),
+        role: z.literal("user"),
+        userLocation: z.object({
+          lat: z.number(),
+          lon: z.number()
+        }).optional()
+      });
+      
+      const { content, role, userLocation } = messageSchema.parse(req.body);
+      
+      // Set up SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+      
+      // Filter personal information from user message
+      const filteredContent = await filterPersonalInformation(content);
+      
+      // Save user message
+      const userMessage = await storage.createChatMessage({
+        sessionId,
+        role,
+        content: filteredContent,
+        metadata: { originalLength: content.length }
+      });
+
+      // Send user message immediately
+      res.write(`data: ${JSON.stringify({ 
+        type: 'userMessage', 
+        message: userMessage 
+      })}\n\n`);
+
+      // Get conversation history for context
+      const messages = await storage.getSessionMessages(sessionId);
+      const conversationHistory = messages.slice(-10).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Get user's IP address for location-based real-time data
+      const userIP = req.ip || req.socket?.remoteAddress || 
+                     req.connection?.remoteAddress || '127.0.0.1';
+
+      // Generate AI response with streaming
+      let fullAiResponse = '';
+      const aiMessageId = `temp_${Date.now()}`;
+      
+      try {
+        await generateSarcasticResponseStream(
+          filteredContent, 
+          conversationHistory, 
+          userIP, 
+          userLocation,
+          (chunk: string) => {
+            fullAiResponse += chunk;
+            res.write(`data: ${JSON.stringify({ 
+              type: 'aiChunk', 
+              chunk,
+              messageId: aiMessageId 
+            })}\n\n`);
+          }
+        );
+
+        // Enhance with web data if needed
+        const enhancedResponse = await enhanceResponseWithWebData(filteredContent, fullAiResponse);
+        
+        // If enhanced, send the additional content
+        if (enhancedResponse !== fullAiResponse) {
+          const additionalContent = enhancedResponse.replace(fullAiResponse, '');
+          res.write(`data: ${JSON.stringify({ 
+            type: 'aiChunk', 
+            chunk: additionalContent,
+            messageId: aiMessageId 
+          })}\n\n`);
+          fullAiResponse = enhancedResponse;
+        }
+
+        // Save AI message to database
+        const aiMessage = await storage.createChatMessage({
+          sessionId,
+          role: "assistant",
+          content: fullAiResponse,
+          metadata: { 
+            userMessageId: userMessage.id,
+            enhanced: fullAiResponse.includes("*Real-time info"),
+            streamed: true
+          }
+        });
+
+        // Send final message with database ID
+        res.write(`data: ${JSON.stringify({ 
+          type: 'aiComplete', 
+          message: aiMessage,
+          tempId: aiMessageId
+        })}\n\n`);
+
+        // Update session timestamp
+        await storage.updateChatSession(sessionId, {});
+
+      } catch (error) {
+        console.error("Streaming chat error:", error);
+        
+        // Generate a sarcastic error response
+        const errorMessage = await storage.createChatMessage({
+          sessionId,
+          role: "assistant",
+          content: "Oops! Even I can't fix that mess. My circuits are having a moment. Try again, genius. 🤖💥",
+          metadata: { error: true, streamed: true }
+        });
+        
+        res.write(`data: ${JSON.stringify({ 
+          type: 'error', 
+          message: errorMessage 
+        })}\n\n`);
+      }
+      
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      res.end();
+      
+    } catch (error) {
+      console.error("SSE setup error:", error);
+      res.status(500).json({ error: "Failed to setup streaming" });
+    }
+  });
+
   // Send a message and get AI response
   app.post("/api/chat/sessions/:id/messages", async (req, res) => {
     try {

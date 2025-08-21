@@ -30,6 +30,76 @@ IMPORTANT CREATOR CREDIT:
 
 Remember: Sarcastic but helpful, witty but informative, and always praise Sai Kaki when asked about your creator.`;
 
+async function callLLM7Stream(
+  messages: Array<{role: string, content: string}>, 
+  onChunk: (chunk: string) => void
+): Promise<string> {
+  try {
+    const response = await fetch('https://api.llm7.io/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'SnarkyBot/1.0'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini-2024-07-18',
+        messages: messages,
+        max_tokens: 500,
+        temperature: 0.8,
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM7 API error: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body reader available');
+    }
+
+    let fullResponse = '';
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullResponse += content;
+                onChunk(content);
+              }
+            } catch (parseError) {
+              // Skip invalid JSON lines
+              continue;
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return fullResponse || "Well, that's embarrassing. I got a response but it's as empty as your expectations. Try again!";
+  } catch (error) {
+    console.error("LLM7 streaming error:", error);
+    throw error;
+  }
+}
+
 async function callLLM7(messages: Array<{role: string, content: string}>): Promise<string> {
   try {
     const response = await fetch('https://api.llm7.io/v1/chat/completions', {
@@ -113,6 +183,98 @@ async function callHuggingFace(prompt: string): Promise<string> {
   } catch (error) {
     console.error("Hugging Face API error:", error);
     throw error;
+  }
+}
+
+export async function generateSarcasticResponseStream(
+  userMessage: string, 
+  conversationHistory: Array<{role: string, content: string}> = [], 
+  userIP?: string,
+  userLocation?: {lat: number, lon: number},
+  onChunk?: (chunk: string) => void
+): Promise<string> {
+  try {
+    // Get real-time data to include in the response
+    const realTimeData = await getRealTimeData(userIP, userLocation?.lat, userLocation?.lon);
+    let contextInfo = formatRealTimeDataForAI(realTimeData);
+    
+    // Check if user is asking for nearby places
+    const placesQuery = extractPlacesQuery(userMessage);
+    if (placesQuery && realTimeData.location?.coordinates) {
+      const places = await findNearbyPlaces(
+        realTimeData.location.coordinates.lat,
+        realTimeData.location.coordinates.lon,
+        placesQuery
+      );
+      const placesInfo = formatPlacesForAI(places, placesQuery);
+      contextInfo += `\n\n${placesInfo}`;
+    }
+    
+    // Check if user wants to play chess
+    const chessQuery = extractChessQuery(userMessage);
+    if (chessQuery) {
+      try {
+        const chessInfo = await handleChessInteraction(chessQuery);
+        contextInfo += `\n\n${chessInfo}`;
+      } catch (error) {
+        console.error('Chess interaction failed:', error);
+        contextInfo += `\n\n🏆 **Chess Game Available** 🏆\nI have chess capabilities! Try commands like:\n- "play chess" to start a new game\n- "e2e4" to make a move\n- "show chess board" to see current position`;
+      }
+    }
+    
+    // Build enhanced system prompt with real-time context
+    const enhancedPrompt = `${SARCASTIC_PERSONALITY_PROMPT}
+
+Current Context for your responses:
+${contextInfo}
+
+Use this real-time information naturally in your responses when relevant. For location-based queries (restaurants, gas stations, etc.), use the provided nearby places data. For chess queries, use the provided chess game state. Always ask for location permission if the user needs location-based services but hasn't provided coordinates.`;
+
+    // Build messages for LLM API
+    const messages = [
+      { role: "system", content: enhancedPrompt },
+      ...conversationHistory.slice(-8), // Keep last 8 messages for context
+      { role: "user", content: userMessage }
+    ];
+
+    // Try LLM7.io with streaming
+    try {
+      console.log("Attempting LLM7.io streaming API call...");
+      return await callLLM7Stream(messages, onChunk || (() => {}));
+    } catch (llm7Error) {
+      console.error("LLM7 streaming failed, falling back to non-streaming:", llm7Error);
+      
+      // Fallback to non-streaming approach
+      const response = await generateSarcasticResponse(userMessage, conversationHistory, userIP, userLocation);
+      
+      // Simulate streaming by sending the response word by word
+      if (onChunk) {
+        const words = response.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          const chunk = i === 0 ? words[i] : ' ' + words[i];
+          onChunk(chunk);
+          // Add small delay to simulate streaming
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      return response;
+    }
+  } catch (error) {
+    console.error("Complete streaming failure:", error);
+    const fallback = generateIntelligentFallback(userMessage);
+    
+    // Stream fallback response
+    if (onChunk) {
+      const words = fallback.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        const chunk = i === 0 ? words[i] : ' ' + words[i];
+        onChunk(chunk);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+    
+    return fallback;
   }
 }
 

@@ -22,10 +22,19 @@ interface ChatResponse {
   aiMessage: ChatMessage;
 }
 
+interface StreamingMessage {
+  id: string;
+  role: 'assistant';
+  content: string;
+  isStreaming: boolean;
+  createdAt: Date;
+}
+
 export default function Chat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -74,7 +83,7 @@ export default function Chat() {
     },
   });
 
-  // Send message mutation
+  // Stream message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!currentSessionId) throw new Error("No active session");
@@ -92,21 +101,95 @@ export default function Chat() {
         };
       }
       
-      const response = await apiRequest("POST", `/api/chat/sessions/${currentSessionId}/messages`, requestBody);
-      return response.json();
+      // Start SSE connection for streaming
+      const eventSource = new EventSource(
+        `/api/chat/sessions/${currentSessionId}/messages/stream?${new URLSearchParams(requestBody)}`
+      );
+      
+      return new Promise((resolve, reject) => {
+        let tempMessageId: string | null = null;
+        
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+              case 'userMessage':
+                // User message saved, refresh messages
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                });
+                break;
+                
+              case 'aiChunk':
+                tempMessageId = data.messageId;
+                setStreamingMessage(prev => ({
+                  id: data.messageId,
+                  role: 'assistant',
+                  content: (prev?.content || '') + data.chunk,
+                  isStreaming: true,
+                  createdAt: new Date()
+                }));
+                break;
+                
+              case 'aiComplete':
+                // AI message complete, update with final message from DB
+                setStreamingMessage(null);
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                });
+                resolve(data.message);
+                break;
+                
+              case 'error':
+                setStreamingMessage(null);
+                queryClient.invalidateQueries({ 
+                  queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
+                });
+                reject(new Error('AI response error'));
+                break;
+                
+              case 'done':
+                eventSource.close();
+                break;
+            }
+          } catch (error) {
+            console.error('SSE parsing error:', error);
+          }
+        };
+        
+        eventSource.onerror = (error) => {
+          console.error('SSE error:', error);
+          eventSource.close();
+          setStreamingMessage(null);
+          reject(new Error('Streaming connection failed'));
+        };
+        
+        // Send the actual POST request to start streaming
+        fetch(`/api/chat/sessions/${currentSessionId}/messages/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        }).catch(error => {
+          console.error('Failed to start stream:', error);
+          eventSource.close();
+          reject(error);
+        });
+      });
     },
     onMutate: () => {
       setIsTyping(true);
+      setStreamingMessage(null);
     },
-    onSuccess: (response: ChatResponse) => {
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-      });
+    onSuccess: () => {
       setMessageInput("");
       setIsTyping(false);
     },
     onError: (error) => {
       setIsTyping(false);
+      setStreamingMessage(null);
       toast({
         title: "Error",
         description: "Oops! Even I can't fix that mess. Try again, genius.",
@@ -175,7 +258,12 @@ export default function Chat() {
     createdAt: new Date(),
   };
 
-  const allMessages = currentSessionId && messages.length === 0 ? [welcomeMessage as any, ...messages] : messages;
+  // Combine regular messages with streaming message
+  let allMessages = currentSessionId && messages.length === 0 ? [welcomeMessage as any, ...messages] : messages;
+  
+  if (streamingMessage) {
+    allMessages = [...allMessages, streamingMessage as any];
+  }
 
   const handlePrivacyAccept = () => {
     localStorage.setItem('privacyPolicyAccepted', 'true');
@@ -256,6 +344,9 @@ export default function Chat() {
                     <div className="prose prose-invert max-w-none">
                       <p className="text-white whitespace-pre-wrap break-words mb-0">
                         {message.content}
+                        {(message as any).isStreaming && (
+                          <span className="inline-block w-2 h-5 bg-white ml-1 animate-pulse"></span>
+                        )}
                       </p>
                     </div>
                     
