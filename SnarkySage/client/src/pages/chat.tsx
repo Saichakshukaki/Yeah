@@ -220,7 +220,7 @@ export default function Chat() {
 
               {/* Input Form */}
               <form onSubmit={handleSubmit} className="relative">
-                <div className="relative bg-gray-800 rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
+                <div className="relative rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors" style={{ backgroundColor: '#303030' }}>
                   <div className="flex items-center pl-4 pr-2 py-2">
                     <div className="flex-1 flex items-center space-x-2">
                       <span className="text-gray-400 text-sm">+</span>
@@ -310,7 +310,7 @@ export default function Chat() {
           <div className="border-t border-gray-800 px-4 py-4">
             <div className="max-w-4xl mx-auto">
               <form onSubmit={handleSubmit}>
-                <div className="relative bg-gray-800 rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
+                <div className="relative rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors" style={{ backgroundColor: '#303030' }}>
                   <div className="flex items-center pl-4 pr-2 py-2">
                     <Textarea
                       ref={textareaRef}
