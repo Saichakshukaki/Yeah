@@ -164,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({ userMessage, aiMessage });
         } catch (error) {
           console.error("All image generation methods failed:", error);
-          
+
           // Create fallback response with working alternatives
           aiMessageContent = `Hmm, my image generators are being stubborn today! 😅 But don't worry, I've got backup plans:
 

@@ -2,22 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { 
-  Send, 
-  Copy, 
-  RefreshCw,
-  Bot,
-  User,
-  Image as ImageIcon,
-  Palette
-} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Send, Mic, MicOff } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import Sidebar from "@/components/Sidebar";
-import SettingsModal from "@/components/SettingsModal";
 import PrivacyPolicyModal from "@/components/PrivacyPolicyModal";
-import type { ChatSession, ChatMessage } from "@shared/schema";
+import type { ChatMessage } from "../../shared/schema";
 
 interface ChatResponse {
   userMessage: ChatMessage;
@@ -28,10 +17,9 @@ export default function Chat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -40,174 +28,60 @@ export default function Chat() {
     return !localStorage.getItem('privacyPolicyAccepted');
   });
 
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionitionInstance.interimResults = false;
+      recognitionInstance.lang = 'en-US';
+
+      recognitionInstance.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setMessageInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionInstance.onerror = () => {
+        setIsListening(false);
+        toast({
+          title: "Speech Recognition Error",
+          description: "Could not recognize speech. Please try again.",
+          variant: "destructive"
+        });
+      };
+
+      setRecognition(recognitionInstance);
+    }
+  }, [toast]);
+
   // Create initial session on mount
   useEffect(() => {
     createNewSession();
   }, []);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [currentSessionId]);
-
-  // Get messages for current session
-  const { data: messages = [], isLoading } = useQuery<ChatMessage[]>({
-    queryKey: ["/api/chat/sessions", currentSessionId, "messages"],
-    queryFn: async () => {
-      if (!currentSessionId) return [];
-      const response = await apiRequest("GET", `/api/chat/sessions/${currentSessionId}/messages`);
-      return response.json();
-    },
-    enabled: !!currentSessionId,
-  });
-
-  // Create new session mutation
-  const createSessionMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/chat/sessions", {
-        title: "New Chat",
-        userId: "anonymous"
+  const createNewSession = async () => {
+    try {
+      const response = await fetch('/api/chat/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'New Chat', userId: 'anonymous' })
       });
-      return response.json();
-    },
-    onSuccess: (session: ChatSession) => {
-      setCurrentSessionId(session.id);
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/sessions"] });
-    },
-  });
 
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!currentSessionId) throw new Error("No active session");
-
-      // Handle image upload if present
-      if (selectedImage) {
-        const formData = new FormData();
-        formData.append('image', selectedImage);
-        formData.append('content', content);
-        formData.append('role', 'user');
-
-        if (geolocation.data) {
-          formData.append('userLocation', JSON.stringify({
-            lat: geolocation.data.latitude,
-            lon: geolocation.data.longitude
-          }));
-        }
-
-        const response = await fetch(`/api/chat/sessions/${currentSessionId}/messages-with-image`, {
-          method: 'POST',
-          body: formData
-        });
-        return response.json();
+      if (response.ok) {
+        const session = await response.json();
+        setCurrentSessionId(session.id);
+        setMessages([]);
       }
-
-      // Include location data if available
-      const requestBody: any = {
-        content,
-        role: "user"
-      };
-
-      if (geolocation.data) {
-        requestBody.userLocation = {
-          lat: geolocation.data.latitude,
-          lon: geolocation.data.longitude
-        };
-      }
-
-      const response = await apiRequest("POST", `/api/chat/sessions/${currentSessionId}/messages`, requestBody);
-      return response.json();
-    },
-    onMutate: () => {
-      setIsTyping(true);
-    },
-    onSuccess: () => {
-      setMessageInput("");
-      setSelectedImage(null);
-      setImagePreview(null);
-      setIsTyping(false);
-      // Refresh messages and sessions to get updated title
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/sessions"] 
-      });
-    },
-    onError: (error) => {
-      setIsTyping(false);
-      toast({
-        title: "Error",
-        description: "Oops! Even I can't fix that mess. Try again, genius.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Helper functions
-  const createNewSession = () => {
-    createSessionMutation.mutate();
-  };
-
-  const sendMessage = async () => {
-    if (!messageInput.trim()) return;
-
-    // Auto-request location if needed
-    await requestLocationIfNeeded(messageInput.trim());
-
-    sendMessageMutation.mutate(messageInput.trim());
-  };
-
-  const copyMessage = (content: string) => {
-    navigator.clipboard.writeText(content);
-    toast({
-      title: "Copied",
-      description: "Message copied to clipboard",
-    });
-  };
-
-  const regenerateResponse = () => {
-    // Implementation for regenerating last response
-    toast({
-      title: "Regenerating",
-      description: "Asking Sai Kaki to try again...",
-    });
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessageInput(e.target.value);
-
-    // Auto-resize textarea
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    } catch (error) {
+      console.error('Failed to create session:', error);
     }
   };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  const formatTime = (date: Date | string | null | undefined) => {
-    if (!date) return '';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const welcomeMessage = {
-    id: 'welcome',
-    role: 'assistant',
-    content: "Well, well, well... Another human who thinks they need an AI assistant. 🙄 I'm Sai Kaki, and I'm here to help you while being delightfully sarcastic about it. Try not to bore me to death with your questions.",
-    createdAt: new Date(),
-  };
-
-  // Show welcome message if no messages exist
-  const allMessages = currentSessionId && messages.length === 0 ? [welcomeMessage as any, ...messages] : messages;
 
   const handlePrivacyAccept = () => {
     localStorage.setItem('privacyPolicyAccepted', 'true');
@@ -218,7 +92,6 @@ export default function Chat() {
     setShowPrivacyModal(false);
   };
 
-  // Auto-request location when user asks location-based questions
   const requestLocationIfNeeded = async (message: string) => {
     const locationKeywords = ['nearest', 'nearby', 'closest', 'mcdonald', 'restaurant', 'gas station', 'hospital'];
     const needsLocation = locationKeywords.some(keyword => 
@@ -230,323 +103,249 @@ export default function Chat() {
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
-  const generateImage = async () => {
-    if (!messageInput.trim()) {
+  const handleVoiceInput = () => {
+    if (!recognition) {
       toast({
-        title: "Error",
-        description: "Please enter a prompt for image generation",
-        variant: "destructive",
+        title: "Speech Recognition Not Available",
+        description: "Your browser doesn't support speech recognition.",
+        variant: "destructive"
       });
       return;
     }
 
-    if (!currentSessionId) {
-      toast({
-        title: "Error",
-        description: "No active chat session",
-        variant: "destructive",
-      });
-      return;
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !currentSessionId || isTyping) return;
+
+    const message = messageInput.trim();
+    setMessageInput("");
+    setIsTyping(true);
+
+    await requestLocationIfNeeded(message);
 
     try {
-      setIsTyping(true);
-
-      // Send the image generation request as a regular message
-      const requestBody = {
-        content: `[IMAGE_GENERATION] ${messageInput.trim()}`,
-        role: "user"
+      const userMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: message,
+        sessionId: currentSessionId,
+        createdAt: new Date()
       };
 
-      const response = await apiRequest("POST", `/api/chat/sessions/${currentSessionId}/messages`, requestBody);
+      setMessages(prev => [...prev, userMessage]);
 
-      if (response.ok) {
-        setMessageInput("");
-        queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/sessions", currentSessionId, "messages"] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ["/api/chat/sessions"] 
-        });
-      } else {
-        throw new Error("Failed to generate image");
-      }
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          sessionId: currentSessionId,
+          geolocation: geolocation.data
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to send message');
+
+      const data: ChatResponse = await response.json();
+      setMessages(prev => [...prev.filter(m => m.id !== userMessage.id), data.userMessage, data.aiMessage]);
+
     } catch (error) {
+      console.error('Chat error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate image. Try again!",
-        variant: "destructive",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setIsTyping(false);
     }
   };
 
-  return (
-    <>
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  const formatMessage = (content: string) => {
+    return content.split('\n').map((line, index) => (
+      <span key={index}>
+        {line}
+        {index < content.split('\n').length - 1 && <br />}
+      </span>
+    ));
+  };
+
+  if (showPrivacyModal) {
+    return (
       <PrivacyPolicyModal
         isOpen={showPrivacyModal}
         onAccept={handlePrivacyAccept}
         onClose={handlePrivacyClose}
       />
-      <SettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
+    );
+  }
 
-      <div className="flex h-screen bg-dark-bg text-text-primary">
-        {/* Sidebar */}
-        <Sidebar
-          currentSessionId={currentSessionId}
-          onSessionSelect={setCurrentSessionId}
-          onNewChat={createNewSession}
-          onSettingsClick={() => setShowSettingsModal(true)}
-        />
+  return (
+    <div className="flex flex-col h-screen bg-gray-900 text-white">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {messages.length === 0 ? (
+          // Welcome/Empty State
+          <div className="flex-1 flex flex-col items-center justify-center px-4">
+            <div className="w-full max-w-2xl">
+              <h1 className="text-4xl md:text-5xl font-light text-center text-white mb-12">
+                What can I help with?
+              </h1>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Chat Messages */}
-          <main 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-track-dark-secondary scrollbar-thumb-dark-tertiary"
-            data-testid="chat-container"
-          >
-            {isLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <div className="text-text-muted">Loading chat...</div>
-              </div>
-            ) : (
-              allMessages.map((message) => (
+              {/* Input Form */}
+              <form onSubmit={handleSubmit} className="relative">
+                <div className="relative bg-gray-800 rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
+                  <div className="flex items-center pl-4 pr-2 py-2">
+                    <div className="flex-1 flex items-center space-x-2">
+                      <span className="text-gray-400 text-sm">+</span>
+                      <Textarea
+                        ref={textareaRef}
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask anything"
+                        className="flex-1 bg-transparent border-none resize-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 min-h-[40px] max-h-32 py-2"
+                        style={{ fieldSizing: 'content' } as any}
+                        disabled={isTyping}
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-1 ml-2">
+                      {recognition && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleVoiceInput}
+                          className={`p-2 rounded-full ${
+                            isListening 
+                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                          }`}
+                        >
+                          {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                      )}
+
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!messageInput.trim() || isTyping}
+                        className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : (
+          // Chat Messages
+          <div className="flex-1 overflow-y-auto px-4 py-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex items-start space-x-3 animate-fade-in ${
-                    message.role === 'user' ? 'justify-end' : ''
-                  }`}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      <img 
-                        src="/sai-kaki-logo.svg" 
-                        alt="Sai Kaki" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-
                   <div
-                    className={`rounded-2xl p-4 max-w-2xl relative group ${
+                    className={`max-w-xs md:max-w-2xl px-4 py-3 rounded-2xl ${
                       message.role === 'user'
-                        ? 'bg-chat-user rounded-tr-md'
-                        : 'bg-dark-secondary rounded-tl-md'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-white border border-gray-700'
                     }`}
-                    data-testid={`message-${message.role}`}
                   >
-                    <div className="prose prose-invert max-w-none">
-                      {/* Display uploaded image if this is a user message with image metadata */}
-                      {message.role === 'user' && message.metadata?.imageUrl && (
-                        <div className="mb-3">
-                          <img 
-                            src={message.metadata.imageUrl} 
-                            alt="Uploaded image" 
-                            className="max-w-sm max-h-64 rounded-lg border border-dark-tertiary object-contain"
-                          />
-                        </div>
-                      )}
-
-                      <p className="text-white whitespace-pre-wrap break-words mb-0">
-                        {/* Clean up the content to remove image analysis metadata for display */}
-                        {message.role === 'user' && message.content.includes('[Image uploaded:') 
-                          ? message.content.split('[Image uploaded:')[0].trim() || 'Image uploaded'
-                          : message.content
-                        }
-                      </p>
-
-                      {/* Display generated images */}
-                      {(message.content.includes('data:image/') || message.content.includes('Here\'s your generated image')) && (
-                        <div className="mt-3">
-                          {(() => {
-                            const imageMatch = message.content.match(/data:image\/[^"\s]+/);
-                            if (imageMatch) {
-                              return (
-                                <img 
-                                  src={imageMatch[0]} 
-                                  alt="Generated image" 
-                                  className="max-w-sm max-h-64 rounded-lg border border-dark-tertiary object-contain"
-                                />
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-2 text-xs text-text-muted">
-                      <span>{formatTime(message.createdAt)}</span>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyMessage(message.content)}
-                          className="p-1 h-6 w-6 hover:bg-dark-tertiary"
-                          title="Copy message"
-                          data-testid={`button-copy-${message.id}`}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        {message.role === 'assistant' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={regenerateResponse}
-                            className="p-1 h-6 w-6 hover:bg-dark-tertiary"
-                            title="Regenerate response"
-                            data-testid={`button-regenerate-${message.id}`}
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {message.role === 'user' && (
-                    <div className="w-8 h-8 bg-gradient-to-r from-chat-user to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="text-white h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-
-            {isTyping && (
-              <div className="max-w-4xl mx-auto">
-                <div className="group px-4 py-6 border-b border-gray-100 bg-white">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <img 
-                        src="/sai-kaki-logo.svg" 
-                        alt="Sai Kaki" 
-                        className="w-6 h-6 object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="font-medium text-gray-900 text-sm">Sai Kaki</span>
-                        <span className="text-xs text-gray-500">typing...</span>
-                      </div>
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {formatMessage(message.content)}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </main>
+              ))}
 
-          {/* Chat Input */}
-          <footer className="border-t border-gray-200 bg-white">
-            <div className="max-w-4xl mx-auto p-4">
-              {/* Image Preview */}
-              {imagePreview && (
-                <div className="mb-4 relative inline-block">
-                  <img 
-                    src={imagePreview} 
-                    alt="Upload preview" 
-                    className="max-w-32 max-h-32 rounded-lg border border-gray-200 shadow-sm"
-                  />
-                  <button
-                    onClick={removeImage}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 shadow-lg"
-                  >
-                    ×
-                  </button>
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800 text-white border border-gray-700 px-4 py-3 rounded-2xl">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <div className="flex items-end space-x-3">
-                <div className="flex space-x-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <label htmlFor="image-upload">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-10 h-10 hover:bg-gray-100 border border-gray-300 rounded-lg text-gray-600"
-                      asChild
-                    >
-                      <span>
-                        <ImageIcon className="h-4 w-4" />
-                      </span>
-                    </Button>
-                  </label>
-                  <Button
-                    onClick={generateImage}
-                    disabled={!messageInput.trim() || sendMessageMutation.isPending}
-                    variant="ghost"
-                    size="sm"
-                    className="w-10 h-10 hover:bg-gray-100 border border-gray-300 rounded-lg text-gray-600 disabled:opacity-50"
-                    title="Generate Image"
-                  >
-                    <Palette className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="flex-1 relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={messageInput}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Message Sai Kaki..."
-                    className="w-full bg-white border border-gray-300 rounded-3xl px-4 py-3 pr-12 text-gray-800 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 min-h-[44px] max-h-[120px] shadow-sm"
-                    rows={1}
-                    data-testid="input-message"
-                  />
-
-                  <Button
-                    onClick={sendMessage}
-                    disabled={(!messageInput.trim() && !selectedImage) || sendMessageMutation.isPending}
-                    className="absolute right-2 bottom-2 w-8 h-8 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all duration-200 shadow-sm p-0"
-                    data-testid="button-send"
-                  >
-                    <Send className="text-white h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-center mt-2 text-xs text-gray-500">
-                <span>Sai Kaki can make mistakes. Consider checking important information.</span>
-              </div>
             </div>
-          </footer>
-        </div>
+          </div>
+        )}
+
+        {/* Bottom Input - Only show when there are messages */}
+        {messages.length > 0 && (
+          <div className="border-t border-gray-800 px-4 py-4">
+            <div className="max-w-4xl mx-auto">
+              <form onSubmit={handleSubmit}>
+                <div className="relative bg-gray-800 rounded-full border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
+                  <div className="flex items-center pl-4 pr-2 py-2">
+                    <Textarea
+                      ref={textareaRef}
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Ask anything"
+                      className="flex-1 bg-transparent border-none resize-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 min-h-[40px] max-h-32 py-2"
+                      style={{ fieldSizing: 'content' } as any}
+                      disabled={isTyping}
+                    />
+
+                    <div className="flex items-center space-x-1 ml-2">
+                      {recognition && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleVoiceInput}
+                          className={`p-2 rounded-full ${
+                            isListening 
+                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                              : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                          }`}
+                        >
+                          {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                      )}
+
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={!messageInput.trim() || isTyping}
+                        className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
