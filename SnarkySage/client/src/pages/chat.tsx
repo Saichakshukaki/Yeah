@@ -34,7 +34,7 @@ export default function Chat() {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
       recognitionInstance.continuous = false;
-      recognitionitionInstance.interimResults = false;
+      recognitionInstance.interimResults = false;
       recognitionInstance.lang = 'en-US';
 
       recognitionInstance.onresult = (event: any) => {
