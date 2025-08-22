@@ -76,6 +76,15 @@
   .chat-container, .chat-messages, .message-container {
     background-color: #36454F !important;
   }
+  
+  /* Override blue button styling to match theme */
+  .bg-blue-500, .bg-blue-600 {
+    background-color: #2a2a2a !important;
+  }
+  
+  .hover\:bg-blue-600:hover {
+    background-color: #404040 !important;
+  }
 }
 
 /* Custom scrollbar for dark theme */
