@@ -19,8 +19,8 @@ export default function Chat() {
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Renamed to avoid confusion and use ref for mutable instance
+  const recognitionInstanceRef = useRef<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const geolocation = useGeolocation();
@@ -32,22 +32,22 @@ export default function Chat() {
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'en-US';
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
 
-      recognitionInstance.onresult = (event: any) => {
+      recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setMessageInput(transcript);
         setIsListening(false);
       };
 
-      recognitionInstance.onend = () => {
+      recognition.onend = () => {
         setIsListening(false);
       };
 
-      recognitionInstance.onerror = (event: any) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
         toast({
@@ -57,7 +57,8 @@ export default function Chat() {
         });
       };
 
-      setRecognition(recognitionInstance);
+      // Store the instance in the ref
+      recognitionInstanceRef.current = recognition;
     }
   }, [toast]);
 
@@ -105,6 +106,7 @@ export default function Chat() {
   };
 
   const handleVoiceInput = () => {
+    const recognition = recognitionInstanceRef.current; // Use the ref's current value
     if (!recognition) {
       toast({
         title: "Speech Recognition Not Available",
@@ -234,7 +236,7 @@ export default function Chat() {
                     </div>
 
                     <div className="flex items-center space-x-1 ml-2">
-                      {recognition && (
+                      {recognitionInstanceRef.current && ( // Check if recognition is available
                         <Button
                           type="button"
                           size="sm"
@@ -321,7 +323,7 @@ export default function Chat() {
                     />
 
                     <div className="flex items-center space-x-1 ml-2">
-                      {recognition && (
+                      {recognitionInstanceRef.current && ( // Check if recognition is available
                         <Button
                           type="button"
                           size="sm"
