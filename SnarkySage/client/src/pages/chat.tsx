@@ -94,7 +94,7 @@ export default function Chat() {
 
   const requestLocationIfNeeded = async (message: string) => {
     const locationKeywords = ['nearest', 'nearby', 'closest', 'mcdonald', 'restaurant', 'gas station', 'hospital'];
-    const needsLocation = locationKeywords.some(keyword => 
+    const needsLocation = locationKeywords.some(keyword =>
       message.toLowerCase().includes(keyword)
     );
 
@@ -126,33 +126,40 @@ export default function Chat() {
     e.preventDefault();
     if (!messageInput.trim() || !currentSessionId || isTyping) return;
 
-    const message = messageInput.trim();
-    setMessageInput("");
+    const messageContent = messageInput.trim();
+    setMessageInput(""); // Clear input after getting the message
     setIsTyping(true);
 
-    await requestLocationIfNeeded(message);
+    await requestLocationIfNeeded(messageContent);
 
     try {
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
-        role: 'user',
-        content: message,
         sessionId: currentSessionId,
-        createdAt: new Date()
+        role: 'user',
+        content: messageContent,
+        createdAt: new Date(),
       };
 
       setMessages(prev => [...prev, userMessage]);
 
       const response = await fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          message,
-          geolocation: geolocation.data
+          content: messageContent,
+          role: 'user',
+          userLocation: geolocation.data
         })
       });
 
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Server error:', errorData);
+        throw new Error(`Server responded with ${response.status}: ${errorData}`);
+      }
 
       const data: ChatResponse = await response.json();
       setMessages(prev => [...prev.filter(m => m.id !== userMessage.id), data.userMessage, data.aiMessage]);
@@ -172,7 +179,7 @@ export default function Chat() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      handleSubmit(e as any); // Cast to any to satisfy onSubmit signature
     }
   };
 
@@ -233,8 +240,8 @@ export default function Chat() {
                           variant="ghost"
                           onClick={handleVoiceInput}
                           className={`p-2 rounded-full ${
-                            isListening 
-                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                            isListening
+                              ? 'bg-red-500 hover:bg-red-600 text-white'
                               : 'text-gray-400 hover:text-white hover:bg-gray-700'
                           }`}
                         >
@@ -320,8 +327,8 @@ export default function Chat() {
                           variant="ghost"
                           onClick={handleVoiceInput}
                           className={`p-2 rounded-full ${
-                            isListening 
-                              ? 'bg-red-500 hover:bg-red-600 text-white' 
+                            isListening
+                              ? 'bg-red-500 hover:bg-red-600 text-white'
                               : 'text-gray-400 hover:text-white hover:bg-gray-700'
                           }`}
                         >
