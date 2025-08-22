@@ -212,7 +212,7 @@ export default function Chat() {
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
               <h1 className="text-4xl md:text-5xl font-light text-center text-white mb-12">
-                What can I help with?
+                SAI KAKI 0.2
               </h1>
 
               {/* Input Form */}
