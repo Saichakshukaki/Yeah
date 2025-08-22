@@ -17,7 +17,15 @@ export default function Chat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      sessionId: 'welcome',
+      role: 'assistant',
+      content: '# Welcome to Sai Kaki v0.1\n\nHey there! I\'m Sai Kaki, your AI assistant with a bit of attitude. I can help you with questions, provide real-time information, play chess, and even analyze images. What would you like to know?',
+      createdAt: new Date().toISOString()
+    }
+  ]);
   const [isListening, setIsListening] = useState(false);
   // Renamed to avoid confusion and use ref for mutable instance
   const recognitionInstanceRef = useRef<any>(null);
@@ -215,7 +223,7 @@ export default function Chat() {
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl">
               <h1 className="text-4xl md:text-5xl font-light text-center text-white mb-12">
-                SAI KAKI 0.2
+                SAI KAKI 0.1
               </h1>
 
               {/* Input Form */}
@@ -269,7 +277,7 @@ export default function Chat() {
           </div>
         ) : (
           // Chat Messages
-          <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 message-container" style={{ backgroundColor: '#36454F' }}>
             <div className="max-w-4xl mx-auto space-y-6">
               {messages.map((message) => (
                 <div

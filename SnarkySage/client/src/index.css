@@ -64,10 +64,17 @@
   * {
     @apply border-border;
   }
-  body {
+  html, body, #root {
     @apply bg-background text-foreground;
     font-family: 'Martin', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+    background-color: #36454F !important;
+  }
+  
+  /* Ensure consistent background throughout */
+  .chat-container, .chat-messages, .message-container {
+    background-color: #36454F !important;
   }
 }
 

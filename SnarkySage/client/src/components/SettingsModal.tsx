@@ -132,7 +132,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div className="bg-dark-bg p-3 rounded-lg border border-dark-tertiary">
                 <p className="text-sm text-text-muted">
                   <strong>Sai Kaki AI Assistant</strong><br />
-                  Version 2.0<br />
+                  Version 0.1<br />
                   AI with attitude, real-time data, and chess capabilities
                 </p>
               </div>
