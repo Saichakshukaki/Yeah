@@ -332,19 +332,34 @@ These services are working right now and will give you amazing results! Want me 
         imageAnalysis = "I can see an image, but I'm having trouble analyzing it right now.";
       }
 
-      // Create user message with image context
+      // Create user message with image context and store image data
       const userMessage = await storage.createChatMessage({
         sessionId,
         role: "user",
-        content: `${content}\n\n[Image uploaded: ${imageAnalysis}]`,
+        content: content || "Image uploaded",
+        metadata: { 
+          imageUrl: imageBase64,
+          imageAnalysis: imageAnalysis
+        }
       });
 
       // Generate AI response with image context
-      const contextualPrompt = formatImageAnalysisForAI(imageAnalysis, content);
+      const contextualPrompt = formatImageAnalysisForAI(imageAnalysis, content || "");
+
+      // Get conversation history for context
+      const messages = await storage.getSessionMessages(sessionId);
+      const conversationHistory = messages.slice(-10).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Get user's IP address for location-based real-time data
+      const userIP = req.ip || req.socket?.remoteAddress ||
+                     req.connection?.remoteAddress || '127.0.0.1';
 
       let aiResponse = '';
       try {
-        aiResponse = await generateSarcasticResponse(contextualPrompt, userLocation);
+        aiResponse = await generateSarcasticResponse(contextualPrompt, conversationHistory, userIP, userLocation ? JSON.parse(userLocation) : undefined);
       } catch (error) {
         console.error("AI response generation failed:", error);
         aiResponse = "Well, I saw your image but my brain circuits are having a moment. That's embarrassing! 😅";

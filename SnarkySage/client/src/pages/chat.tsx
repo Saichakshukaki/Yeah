@@ -360,9 +360,25 @@ export default function Chat() {
                     data-testid={`message-${message.role}`}
                   >
                     <div className="prose prose-invert max-w-none">
+                      {/* Display uploaded image if this is a user message with image metadata */}
+                      {message.role === 'user' && message.metadata?.imageUrl && (
+                        <div className="mb-3">
+                          <img 
+                            src={message.metadata.imageUrl} 
+                            alt="Uploaded image" 
+                            className="max-w-sm max-h-64 rounded-lg border border-dark-tertiary object-contain"
+                          />
+                        </div>
+                      )}
+                      
                       <p className="text-white whitespace-pre-wrap break-words mb-0">
-                        {message.content}
+                        {/* Clean up the content to remove image analysis metadata for display */}
+                        {message.role === 'user' && message.content.includes('[Image uploaded:') 
+                          ? message.content.split('[Image uploaded:')[0].trim() || 'Image uploaded'
+                          : message.content
+                        }
                       </p>
+                      
                       {/* Display generated images */}
                       {(message.content.includes('data:image/') || message.content.includes('Here\'s your generated image')) && (
                         <div className="mt-3">
