@@ -21,7 +21,7 @@ export default function Chat() {
   const [isListening, setIsListening] = useState(false);
   // Renamed to avoid confusion and use ref for mutable instance
   const recognitionInstanceRef = useRef<any>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null); // Added textareaRef
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const geolocation = useGeolocation();
@@ -207,7 +207,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white">
+    <div className="flex flex-col h-screen text-white" style={{ backgroundColor: '#212121' }}>
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {messages.length === 0 ? (
