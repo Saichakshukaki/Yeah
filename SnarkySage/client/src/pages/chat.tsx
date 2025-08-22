@@ -21,6 +21,7 @@ export default function Chat() {
   const [isListening, setIsListening] = useState(false);
   // Renamed to avoid confusion and use ref for mutable instance
   const recognitionInstanceRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // Added textareaRef
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const geolocation = useGeolocation();
@@ -32,7 +33,7 @@ export default function Chat() {
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
+      const recognition = new SpeechRecognition(); // Changed recognitionitionInstance to recognition
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = 'en-US';
