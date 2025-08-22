@@ -347,8 +347,8 @@ These services are working right now and will give you amazing results! Want me 
       const contextualPrompt = formatImageAnalysisForAI(imageAnalysis, content || "");
 
       // Get conversation history for context
-      const messages = await storage.getSessionMessages(sessionId);
-      const conversationHistory = messages.slice(-10).map(msg => ({
+      const sessionMessages = await storage.getSessionMessages(sessionId);
+      const conversationHistory = sessionMessages.slice(-10).map(msg => ({
         role: msg.role,
         content: msg.content
       }));
@@ -372,8 +372,8 @@ These services are working right now and will give you amazing results! Want me 
       });
 
       // Update session title if this is the first message
-      const messages = await storage.getSessionMessages(sessionId);
-      if (messages.length <= 2) {
+      const allMessages = await storage.getSessionMessages(sessionId);
+      if (allMessages.length <= 2) {
         const title = generateTitleFromMessage(content);
         await storage.updateChatSession(sessionId, { title });
       }

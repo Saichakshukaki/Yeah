@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -90,7 +89,7 @@ export default function Chat() {
         formData.append('image', selectedImage);
         formData.append('content', content);
         formData.append('role', 'user');
-        
+
         if (geolocation.data) {
           formData.append('userLocation', JSON.stringify({
             lat: geolocation.data.latitude,
@@ -269,7 +268,7 @@ export default function Chat() {
 
     try {
       setIsTyping(true);
-      
+
       // Send the image generation request as a regular message
       const requestBody = {
         content: `[IMAGE_GENERATION] ${messageInput.trim()}`,
@@ -277,7 +276,7 @@ export default function Chat() {
       };
 
       const response = await apiRequest("POST", `/api/chat/sessions/${currentSessionId}/messages`, requestBody);
-      
+
       if (response.ok) {
         setMessageInput("");
         queryClient.invalidateQueries({ 
@@ -370,7 +369,7 @@ export default function Chat() {
                           />
                         </div>
                       )}
-                      
+
                       <p className="text-white whitespace-pre-wrap break-words mb-0">
                         {/* Clean up the content to remove image analysis metadata for display */}
                         {message.role === 'user' && message.content.includes('[Image uploaded:') 
@@ -378,7 +377,7 @@ export default function Chat() {
                           : message.content
                         }
                       </p>
-                      
+
                       {/* Display generated images */}
                       {(message.content.includes('data:image/') || message.content.includes('Here\'s your generated image')) && (
                         <div className="mt-3">
@@ -438,19 +437,27 @@ export default function Chat() {
             )}
 
             {isTyping && (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <img 
-                    src="/sai-kaki-logo.svg" 
-                    alt="Sai Kaki" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-text-muted rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="max-w-4xl mx-auto">
+                <div className="group px-4 py-6 border-b border-gray-100 bg-white">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <img 
+                        src="/sai-kaki-logo.svg" 
+                        alt="Sai Kaki" 
+                        className="w-6 h-6 object-cover"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="font-medium text-gray-900 text-sm">Sai Kaki</span>
+                        <span className="text-xs text-gray-500">typing...</span>
+                      </div>
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -458,83 +465,83 @@ export default function Chat() {
           </main>
 
           {/* Chat Input */}
-          <footer className="p-4 border-t border-dark-tertiary bg-dark-secondary">
-            {/* Image Preview */}
-            {imagePreview && (
-              <div className="mb-3 relative inline-block">
-                <img 
-                  src={imagePreview} 
-                  alt="Upload preview" 
-                  className="max-w-32 max-h-32 rounded-lg border border-dark-tertiary"
-                />
-                <button
-                  onClick={removeImage}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600"
-                >
-                  ×
-                </button>
-              </div>
-            )}
+          <footer className="border-t border-gray-200 bg-white">
+            <div className="max-w-4xl mx-auto p-4">
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="mb-4 relative inline-block">
+                  <img 
+                    src={imagePreview} 
+                    alt="Upload preview" 
+                    className="max-w-32 max-h-32 rounded-lg border border-gray-200 shadow-sm"
+                  />
+                  <button
+                    onClick={removeImage}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 shadow-lg"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
 
-            <div className="flex items-end space-x-3">
-              <div className="flex flex-col space-y-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <label htmlFor="image-upload">
+              <div className="flex items-end space-x-3">
+                <div className="flex space-x-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label htmlFor="image-upload">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-10 h-10 hover:bg-gray-100 border border-gray-300 rounded-lg text-gray-600"
+                      asChild
+                    >
+                      <span>
+                        <ImageIcon className="h-4 w-4" />
+                      </span>
+                    </Button>
+                  </label>
                   <Button
+                    onClick={generateImage}
+                    disabled={!messageInput.trim() || sendMessageMutation.isPending}
                     variant="ghost"
                     size="sm"
-                    className="w-10 h-10 bg-dark-bg hover:bg-dark-tertiary border border-dark-tertiary rounded-lg"
-                    asChild
+                    className="w-10 h-10 hover:bg-gray-100 border border-gray-300 rounded-lg text-gray-600 disabled:opacity-50"
+                    title="Generate Image"
                   >
-                    <span>
-                      <ImageIcon className="h-4 w-4 text-text-muted" />
-                    </span>
+                    <Palette className="h-4 w-4" />
                   </Button>
-                </label>
-                <Button
-                  onClick={generateImage}
-                  disabled={!messageInput.trim() || sendMessageMutation.isPending}
-                  variant="ghost"
-                  size="sm"
-                  className="w-10 h-10 bg-dark-bg hover:bg-dark-tertiary border border-dark-tertiary rounded-lg"
-                  title="Generate Image"
-                >
-                  <Palette className="h-4 w-4 text-text-muted" />
-                </Button>
+                </div>
+
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={messageInput}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Message Sai Kaki..."
+                    className="w-full bg-white border border-gray-300 rounded-3xl px-4 py-3 pr-12 text-gray-800 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 min-h-[44px] max-h-[120px] shadow-sm"
+                    rows={1}
+                    data-testid="input-message"
+                  />
+
+                  <Button
+                    onClick={sendMessage}
+                    disabled={(!messageInput.trim() && !selectedImage) || sendMessageMutation.isPending}
+                    className="absolute right-2 bottom-2 w-8 h-8 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-full flex items-center justify-center transition-all duration-200 shadow-sm p-0"
+                    data-testid="button-send"
+                  >
+                    <Send className="text-white h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={messageInput}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your message... (try not to make it boring)"
-                  className="w-full bg-dark-bg border border-dark-tertiary rounded-2xl px-4 py-3 pr-12 text-white placeholder-white/70 resize-none focus:outline-none focus:ring-2 focus:ring-chat-user focus:border-transparent transition-all duration-200 min-h-[44px] max-h-[120px]"
-                  rows={1}
-                  data-testid="input-message"
-                />
-
-                <Button
-                  onClick={sendMessage}
-                  disabled={(!messageInput.trim() && !selectedImage) || sendMessageMutation.isPending}
-                  className="absolute right-2 bottom-2 w-8 h-8 bg-chat-user hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-all duration-200 transform hover:scale-105 disabled:transform-none p-0"
-                  data-testid="button-send"
-                >
-                  <Send className="text-white h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-2 text-xs text-text-muted">
-              <div className="flex items-center space-x-4">
-                <span>Press Enter to send • Shift+Enter for new line</span>
+              <div className="flex justify-center mt-2 text-xs text-gray-500">
+                <span>Sai Kaki can make mistakes. Consider checking important information.</span>
               </div>
             </div>
           </footer>
