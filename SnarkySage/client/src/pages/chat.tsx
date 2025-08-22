@@ -143,12 +143,11 @@ export default function Chat() {
 
       setMessages(prev => [...prev, userMessage]);
 
-      const response = await fetch('/api/chat', {
+      const response = await fetch(`/api/chat/sessions/${currentSessionId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message,
-          sessionId: currentSessionId,
           geolocation: geolocation.data
         })
       });
