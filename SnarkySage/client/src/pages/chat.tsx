@@ -47,7 +47,8 @@ export default function Chat() {
         setIsListening(false);
       };
 
-      recognitionInstance.onerror = () => {
+      recognitionInstance.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
         setIsListening(false);
         toast({
           title: "Speech Recognition Error",

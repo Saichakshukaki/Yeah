@@ -112,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userLocation: z.object({
           lat: z.number(),
           lon: z.number()
-        }).optional(),
+        }).optional().nullable(),
         imageUrl: z.string().optional() // Add imageUrl to the schema
       });
 
