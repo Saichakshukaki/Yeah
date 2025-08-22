@@ -5,11 +5,11 @@
 
 @layer base {
   :root {
-    --background: #36454F;
+    --background: #212121;
     --foreground: 210 40% 98%;
-    --card: #36454F;
+    --card: #212121;
     --card-foreground: 210 40% 98%;
-    --popover: #36454F;
+    --popover: #212121;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
@@ -33,11 +33,11 @@
   }
 
   .dark {
-    --background: #36454F;
+    --background: #212121;
     --foreground: 210 40% 98%;
-    --card: #36454F;
+    --card: #212121;
     --card-foreground: 210 40% 98%;
-    --popover: #36454F;
+    --popover: #212121;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
@@ -69,12 +69,12 @@
     font-family: 'Martin', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     min-height: 100vh;
-    background-color: #36454F !important;
+    background-color: #212121 !important;
   }
   
   /* Ensure consistent background throughout */
   .chat-container, .chat-messages, .message-container {
-    background-color: #36454F !important;
+    background-color: #212121 !important;
   }
   
   /* Override blue button styling to match theme */
