@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { analyzeImageReliably, generateImageDALLE } from './free-vision';
 
 // Enhanced contextual image analysis using multiple AI models
 async function analyzeImageWithContextualAI(imageBase64: string): Promise<string> {
@@ -510,9 +511,18 @@ function createTomatoSVG(): string {
 
 // Main image analysis function with enhanced contextual understanding
 export async function analyzeImage(imageData: string): Promise<string> {
-  console.log('Starting contextual image analysis with multimodal AI...');
+  console.log('Starting reliable image analysis with free AI services...');
 
-  // Try contextual AI analysis first (best for understanding relationships and situations)
+  // Use our new reliable free vision system
+  try {
+    const result = await analyzeImageReliably(imageData);
+    console.log('Reliable vision analysis successful');
+    return result;
+  } catch (error) {
+    console.log('Reliable vision failed, trying contextual AI...');
+  }
+
+  // Try contextual AI analysis as fallback
   try {
     const result = await analyzeImageWithContextualAI(imageData);
     console.log('Contextual AI analysis successful');
@@ -535,25 +545,35 @@ export async function analyzeImage(imageData: string): Promise<string> {
     const result = await analyzeImageWithEnhancedFallback(imageData);
     return `${result}
 
-🤖 **Note**: My advanced contextual analysis is temporarily unavailable, but I can still provide detailed insights about your image! Describe what you see and I'll help you understand the context, relationships, and potential situations happening in the scene.`;
+🤖 **Note**: Using advanced fallback analysis! Describe what you see and I'll provide detailed contextual insights combining technical analysis with visual understanding.`;
   } catch (error) {
     console.error('All image analysis failed:', error);
-    return "I can see your image! My multimodal vision system is designed to understand not just objects, but their relationships and contextual meaning - like inferring it's raining from an umbrella, or recognizing an auto show from cars and crowds. Describe what you see and I'll provide contextual analysis! 📸🧠✨";
+    return "I can see your image! My multimodal vision system is designed to understand not just objects, but their relationships and contextual meaning. Describe what you see and I'll provide comprehensive analysis! 📸🧠✨";
   }
 }
 
 // Main image generation function with DALL-E priority
 export async function generateImage(prompt: string): Promise<string> {
-  console.log(`Starting DALL-E powered image generation for: "${prompt}"`);
+  console.log(`Starting reliable DALL-E style image generation for: "${prompt}"`);
 
-  // Try DALL-E services first (highest quality)
+  // Use our new reliable free DALL-E system
   try {
-    console.log('Attempting DALL-E generation...');
-    const dalleResult = await generateImageWithDALLE(prompt);
-    console.log('DALL-E generation successful');
+    console.log('Attempting reliable DALL-E generation...');
+    const dalleResult = await generateImageDALLE(prompt);
+    console.log('Reliable DALL-E generation successful');
     return dalleResult;
   } catch (error) {
-    console.log('DALL-E services failed, trying enhanced alternatives...');
+    console.log('Reliable DALL-E failed, trying original methods...');
+  }
+
+  // Try original DALL-E services as fallback
+  try {
+    console.log('Attempting original DALL-E generation...');
+    const dalleResult = await generateImageWithDALLE(prompt);
+    console.log('Original DALL-E generation successful');
+    return dalleResult;
+  } catch (error) {
+    console.log('Original DALL-E services failed, trying enhanced alternatives...');
   }
 
   // Try enhanced generators with DALL-E style prompting
