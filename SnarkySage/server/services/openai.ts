@@ -78,7 +78,7 @@ async function callLLM7Stream(
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') continue;
-            
+
             try {
               const parsed = JSON.parse(data);
               const content = parsed.choices?.[0]?.delta?.content;
@@ -100,7 +100,7 @@ async function callLLM7Stream(
     return fullResponse || "Well, that's embarrassing. I got a response but it's as empty as your expectations. Try again!";
   } catch (error) {
     console.error("LLM7 streaming error:", error);
-    
+
     // More specific error handling
     if (error.message?.includes('fetch')) {
       throw new Error('Network connection failed - my streaming brain is offline');
@@ -135,11 +135,11 @@ async function callLLM7(messages: Array<{role: string, content: string}>): Promi
     }
 
     const data = await response.json();
-    
+
     if (data.choices && data.choices[0] && data.choices[0].message) {
       return data.choices[0].message.content || "Well, that's embarrassing. I got a response but it's as empty as your expectations. Try again!";
     }
-    
+
     throw new Error("Invalid response format from LLM7");
   } catch (error) {
     console.error("LLM7 API error:", error);
@@ -176,11 +176,11 @@ async function callHuggingFace(prompt: string): Promise<string> {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           if (data && data[0] && data[0].generated_text) {
             return data[0].generated_text.trim();
           }
-          
+
           if (data && typeof data === 'string') {
             return data.trim();
           }
@@ -190,7 +190,7 @@ async function callHuggingFace(prompt: string): Promise<string> {
         continue;
       }
     }
-    
+
     throw new Error("All Hugging Face models failed");
   } catch (error) {
     console.error("Hugging Face API error:", error);
@@ -209,7 +209,7 @@ export async function generateSarcasticResponseStream(
     // Get real-time data to include in the response
     const realTimeData = await getRealTimeData(userIP, userLocation?.lat, userLocation?.lon);
     let contextInfo = formatRealTimeDataForAI(realTimeData);
-    
+
     // Check if user is asking for nearby places
     const placesQuery = extractPlacesQuery(userMessage);
     if (placesQuery && realTimeData.location?.coordinates) {
@@ -221,7 +221,7 @@ export async function generateSarcasticResponseStream(
       const placesInfo = formatPlacesForAI(places, placesQuery);
       contextInfo += `\n\n${placesInfo}`;
     }
-    
+
     // Check if user wants to play chess
     const chessQuery = extractChessQuery(userMessage);
     if (chessQuery) {
@@ -233,7 +233,7 @@ export async function generateSarcasticResponseStream(
         contextInfo += `\n\n🏆 **Chess Game Available** 🏆\nI have chess capabilities! Try commands like:\n- "play chess" to start a new game\n- "e2e4" to make a move\n- "show chess board" to see current position`;
       }
     }
-    
+
     // Build enhanced system prompt with real-time context
     const enhancedPrompt = `${SARCASTIC_PERSONALITY_PROMPT}
 
@@ -255,11 +255,11 @@ Use this real-time information naturally in your responses when relevant. For lo
       return await callLLM7Stream(messages, onChunk || (() => {}));
     } catch (llm7Error) {
       console.error("LLM7 streaming failed, falling back to non-streaming:", llm7Error);
-      
+
       try {
         // Fallback to non-streaming approach
         const response = await generateSarcasticResponse(userMessage, conversationHistory, userIP, userLocation);
-        
+
         // Simulate streaming by sending the response word by word
         if (onChunk) {
           const words = response.split(' ');
@@ -270,23 +270,23 @@ Use this real-time information naturally in your responses when relevant. For lo
             await new Promise(resolve => setTimeout(resolve, 30));
           }
         }
-        
+
         return response;
       } catch (fallbackError) {
         console.error("Fallback also failed:", fallbackError);
         const errorResponse = generateIntelligentFallback(userMessage);
-        
+
         if (onChunk) {
           onChunk(errorResponse);
         }
-        
+
         return errorResponse;
       }
     }
   } catch (error) {
     console.error("Complete streaming failure:", error);
     const fallback = generateIntelligentFallback(userMessage);
-    
+
     // Stream fallback response
     if (onChunk) {
       const words = fallback.split(' ');
@@ -296,7 +296,7 @@ Use this real-time information naturally in your responses when relevant. For lo
         await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
-    
+
     return fallback;
   }
 }
@@ -311,7 +311,7 @@ export async function generateSarcasticResponse(
     // Get real-time data to include in the response
     const realTimeData = await getRealTimeData(userIP, userLocation?.lat, userLocation?.lon);
     let contextInfo = formatRealTimeDataForAI(realTimeData);
-    
+
     // Check if user is asking for nearby places
     const placesQuery = extractPlacesQuery(userMessage);
     if (placesQuery && realTimeData.location?.coordinates) {
@@ -323,7 +323,7 @@ export async function generateSarcasticResponse(
       const placesInfo = formatPlacesForAI(places, placesQuery);
       contextInfo += `\n\n${placesInfo}`;
     }
-    
+
     // Check if user wants to play chess
     const chessQuery = extractChessQuery(userMessage);
     if (chessQuery) {
@@ -335,7 +335,7 @@ export async function generateSarcasticResponse(
         contextInfo += `\n\n🏆 **Chess Game Available** 🏆\nI have chess capabilities! Try commands like:\n- "play chess" to start a new game\n- "e2e4" to make a move\n- "show chess board" to see current position`;
       }
     }
-    
+
     // Build enhanced system prompt with real-time context
     const enhancedPrompt = `${SARCASTIC_PERSONALITY_PROMPT}
 
@@ -358,7 +358,7 @@ Use this real-time information naturally in your responses when relevant. For lo
       return response;
     } catch (llm7Error) {
       console.error("LLM7 failed, trying Hugging Face:", llm7Error);
-      
+
       // Try Hugging Face as fallback
       try {
         const prompt = `${enhancedPrompt}\n\nUser: ${userMessage}\nSai Kaki:`;
@@ -366,7 +366,7 @@ Use this real-time information naturally in your responses when relevant. For lo
         return response || "Well, my backup brain is having issues too. You asked something interesting, but apparently I'm as reliable as a chocolate teapot today! 🤖";
       } catch (hfError) {
         console.error("Hugging Face also failed:", hfError);
-        
+
         // If both APIs fail, return intelligent fallback with real-time data
         return generateIntelligentFallback(userMessage, contextInfo);
       }
@@ -379,7 +379,7 @@ Use this real-time information naturally in your responses when relevant. For lo
 
 function extractPlacesQuery(message: string): string | null {
   const msg = message.toLowerCase();
-  
+
   // Common patterns for place searches
   const patterns = [
     /(?:nearest|nearby|closest|find)\s+(restaurant|gas\s+station|hospital|bank|pharmacy|grocery|hotel|atm)/,
@@ -388,20 +388,20 @@ function extractPlacesQuery(message: string): string | null {
     /(?:any|good)\s+(restaurant|gas\s+station|hospital|bank|pharmacy|grocery|hotel|atm)s?\s+(?:near|around|close)/,
     /how\s+far\s+is\s+(?:the\s+)?nearest\s+(restaurant|gas\s+station|hospital|bank|pharmacy|grocery|hotel|atm|mcdonalds?|mcdonald's)/
   ];
-  
+
   for (const pattern of patterns) {
     const match = msg.match(pattern);
     if (match) {
       return match[1] || match[2];
     }
   }
-  
+
   return null;
 }
 
 function extractChessQuery(message: string): string | null {
   const msg = message.toLowerCase();
-  
+
   // Chess-related patterns
   const patterns = [
     /(?:play|start|begin)\s+chess/,
@@ -414,7 +414,7 @@ function extractChessQuery(message: string): string | null {
     /stockfish/,
     /chess\s+engine/
   ];
-  
+
   for (const pattern of patterns) {
     const match = msg.match(pattern);
     if (match) {
@@ -425,7 +425,7 @@ function extractChessQuery(message: string): string | null {
       return 'chess';
     }
   }
-  
+
   return null;
 }
 
@@ -448,7 +448,7 @@ async function handleChessInteraction(query: string): Promise<string> {
         return `🤔 **Chess Error:** ${result.message}\n\n${chessEngine.getBoardDisplay()}`;
       }
     }
-    
+
     return chessEngine.getBoardDisplay();
   } catch (error) {
     console.error('Chess interaction error:', error);
@@ -459,53 +459,53 @@ async function handleChessInteraction(query: string): Promise<string> {
 function generateIntelligentFallback(userMessage: string, realTimeInfo?: string): string {
   const msg = userMessage.toLowerCase();
   const timeInfo = realTimeInfo ? `\n\n${realTimeInfo}` : '';
-  
+
   // Handle image generation requests
   if (msg.includes('generate') && (msg.includes('image') || msg.includes('picture') || msg.includes('draw'))) {
     return `Oh, you want me to create visual art? 🎨 How delightfully ambitious! While my artistic circuits are having a creative block right now, I can definitely help you craft the perfect prompt for image generation. Just tell me what you want to see and I'll make it sound absolutely magnificent!${timeInfo}`;
   }
-  
+
   // Handle image analysis requests
   if (msg.includes('what') && (msg.includes('image') || msg.includes('picture') || msg.includes('this'))) {
     return `Ah, playing the guessing game with images, are we? 🕵️ My visual analysis skills are temporarily on coffee break, but if you describe what you're seeing, I can provide some wonderfully sarcastic insights about it!${timeInfo}`;
   }
-  
+
   // Analyze the question type and provide a relevant sarcastic response
   if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
     return `Oh, how *original*! 🙄 Another human starts with a greeting. What can I help you with, genius? (Note: I'm temporarily running in demo mode while my AI brain reboots!)${timeInfo}`;
   }
-  
+
   if (msg.includes('what') && (msg.includes('you') || msg.includes('can'))) {
     return `What can I do? 💪 Well, normally I'd dazzle you with my full AI capabilities, but right now I'm running in 'witty backup mode' while my main systems are being dramatic. Ask me again in a moment!${timeInfo}`;
   }
-  
+
   if (msg.includes('how') || msg.includes('why') || msg.includes('explain')) {
     return `Oh, you want me to explain something? 🤔 How delightfully curious! You asked: "${userMessage}" and normally I'd give you a brilliantly sarcastic yet informative answer, but my AI circuits are temporarily having an existential crisis. Try again soon!${timeInfo}`;
   }
-  
+
   if (msg.includes('time') || msg.includes('weather') || msg.includes('temperature')) {
     return `Well, well... asking about time or weather? How refreshingly practical! 🌡️ Let me check my sensors...${timeInfo}`;
   }
-  
+
   return `Well, well, well... 🙄 You asked: "${userMessage}" and I'm absolutely *dying* to give you a perfectly snarky response, but my LLM brain is temporarily offline. I'm like a sports car with no engine right now - still good looking, just not very useful! Try me again in a moment! 🤖✨${timeInfo}`;
 }
 
 export async function filterPersonalInformation(text: string): Promise<string> {
   // Always do basic filtering manually for privacy protection
   let filtered = text;
-  
+
   // Email pattern
   filtered = filtered.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]');
-  
+
   // Phone pattern (simple)
   filtered = filtered.replace(/(\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}/g, '[PHONE]');
-  
+
   // Credit card pattern (simple)
   filtered = filtered.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, '[CREDIT_CARD]');
-  
+
   // Social Security Number pattern
   filtered = filtered.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, '[SSN]');
-  
+
   // Basic pattern-based filtering is sufficient for now
   return filtered;
 }
