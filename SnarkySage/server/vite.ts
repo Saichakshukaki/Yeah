@@ -2,7 +2,6 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { type Server } from "http";
-import { nanoid } from "nanoid";
 
 // Lazy-created in development only to avoid requiring dev deps in production
 let viteLogger: any | undefined;
@@ -22,6 +21,7 @@ export async function setupVite(app: Express, server: Server) {
   // Dynamically import Vite and config only in development
   const { createServer: createViteServer, createLogger } = await import("vite");
   const { default: viteConfig } = await import("../vite.config");
+  const { nanoid } = await import("nanoid");
   viteLogger = createLogger();
   const serverOptions = {
     middlewareMode: true,
