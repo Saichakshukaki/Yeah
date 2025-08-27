@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: yeah
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GOOGLE_CLIENT_ID
+        value: 53746788933-f9ed0ubfhtlgf515ediap7o7sa0kd5lo.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        value: 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
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 53746788933-f9ed0ubfhtlgf515ediap7o7sa0kd5lo.apps.googleusercontent.com
+      - key: JWT_SECRET
+        value: your-jwt-secret-key
+      - key: VITE_BACKEND_KEY
+        value: snarky_sage_backend_key_2024
+      - key: DATABASE_URL
+        value: ""
