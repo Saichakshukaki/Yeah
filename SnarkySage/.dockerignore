@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+Dockerfile
+.git
+.gitignore
+.dockerignore
+**/.DS_Store
+**/*.local
+**/*.log
+**/*.tar.gz
+**/.env*
+**/.replit
+**/migrations
+**/dist
+**/server/public
