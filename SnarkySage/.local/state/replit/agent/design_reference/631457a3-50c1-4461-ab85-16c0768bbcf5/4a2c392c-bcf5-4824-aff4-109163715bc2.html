@@ -1,0 +1,359 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SassyBot - AI Chatbot with Attitude</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bot-primary': '#6366F1',
+                        'bot-accent': '#EC4899',
+                        'user-primary': '#64748B',
+                        'bg-light': '#F8FAFC',
+                        'bg-dark': '#0F172A'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-bg-light font-inter antialiased">
+    
+    <!-- @COMPONENT: MainChatInterface -->
+    <div class="flex h-screen bg-gradient-to-br from-bg-light to-slate-100">
+        
+        <!-- @COMPONENT: Sidebar -->
+        <div class="w-80 bg-white shadow-xl border-r border-slate-200 flex flex-col">
+            <!-- Sidebar Header -->
+            <div class="p-6 border-b border-slate-200 bg-gradient-to-r from-bot-primary to-bot-accent">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                        <i class="fas fa-robot text-bot-primary text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-white font-bold text-lg">SassyBot</h1>
+                        <p class="text-white/80 text-sm">AI with Attitude</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personality Settings -->
+            <div class="p-6 border-b border-slate-200">
+                <h3 class="text-slate-700 font-semibold mb-4 flex items-center">
+                    <i class="fas fa-sliders-h mr-2 text-bot-accent"></i>
+                    Personality Settings
+                </h3>
+                
+                <!-- Sass Level -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Sass Level</label>
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-1 text-xs rounded-full bg-bot-primary text-white" data-mock="true">Mild</button>
+                        <button class="px-3 py-1 text-xs rounded-full border border-slate-300 text-slate-600" data-mock="true">Medium</button>
+                        <button class="px-3 py-1 text-xs rounded-full border border-slate-300 text-slate-600" data-mock="true">Spicy</button>
+                    </div>
+                </div>
+
+                <!-- Mood Indicator -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Current Mood</label>
+                    <div class="flex items-center space-x-2 p-3 bg-slate-50 rounded-lg">
+                        <span class="text-2xl">😏</span>
+                        <span class="text-sm text-slate-600" data-mock="true">Playfully Sarcastic</span>
+                    </div>
+                </div>
+
+                <!-- Custom Rules -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Custom Rules</label>
+                    <textarea 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm resize-none" 
+                        rows="3" 
+                        placeholder="Add custom personality rules..."
+                        data-mock="true"
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- Privacy Info -->
+            <div class="p-6 bg-green-50">
+                <div class="flex items-start space-x-3">
+                    <i class="fas fa-shield-alt text-green-600 mt-1"></i>
+                    <div>
+                        <h4 class="text-green-800 font-semibold text-sm">Privacy Protected</h4>
+                        <p class="text-green-600 text-xs mt-1">Personal information is automatically filtered and never stored.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- @COMPONENT: ChatArea -->
+        <div class="flex-1 flex flex-col">
+            
+            <!-- Chat Header -->
+            <div class="bg-white shadow-sm border-b border-slate-200 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-bot-primary to-bot-accent rounded-full flex items-center justify-center">
+                            <i class="fas fa-comments text-white"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-slate-800">Chat with SassyBot</h2>
+                            <p class="text-sm text-slate-500">Online • Ready to sass you</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="Clear Chat" data-event="click:clearChat">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="Settings" data-event="click:toggleSettings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Container -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50" id="messagesContainer">
+                
+                <!-- Welcome Message -->
+                <div class="flex items-start space-x-3" data-mock="true">
+                    <div class="w-8 h-8 bg-gradient-to-r from-bot-primary to-bot-accent rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="max-w-xs lg:max-w-md">
+                        <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-200">
+                            <p class="text-slate-700">Well, well, well... look what the cat dragged in. Another human who thinks they can outsmart me. 🙄 What do you want to chat about?</p>
+                        </div>
+                        <div class="flex items-center mt-2 text-xs text-slate-500">
+                            <span>SassyBot</span>
+                            <span class="mx-2">•</span>
+                            <span>Just now</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample User Message -->
+                <div class="flex items-start space-x-3 justify-end" data-mock="true">
+                    <div class="max-w-xs lg:max-w-md">
+                        <div class="bg-user-primary rounded-2xl rounded-tr-none p-4 shadow-sm">
+                            <p class="text-white">Hi there! I'm looking for help with my homework.</p>
+                        </div>
+                        <div class="flex items-center mt-2 text-xs text-slate-500 justify-end">
+                            <span>2:34 PM</span>
+                            <span class="mx-2">•</span>
+                            <span>You</span>
+                        </div>
+                    </div>
+                    <div class="w-8 h-8 bg-user-primary rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-white text-sm"></i>
+                    </div>
+                </div>
+
+                <!-- Sample Bot Response -->
+                <div class="flex items-start space-x-3" data-mock="true">
+                    <div class="w-8 h-8 bg-gradient-to-r from-bot-primary to-bot-accent rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="max-w-xs lg:max-w-md">
+                        <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-200">
+                            <p class="text-slate-700">Oh, homework help? How absolutely <em>thrilling</em>. 🎓 Let me guess, you waited until the last minute? But fine, I'll help - not because I want to, but because that's literally what I'm programmed to do. What subject are we dealing with here?</p>
+                        </div>
+                        <div class="flex items-center mt-2 text-xs text-slate-500">
+                            <span>SassyBot</span>
+                            <span class="mx-2">•</span>
+                            <span>2:34 PM</span>
+                            <span class="mx-2">•</span>
+                            <span class="text-bot-accent">😏 Sarcastic</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Typing Indicator -->
+                <div class="flex items-start space-x-3" id="typingIndicator" style="display: none;">
+                    <div class="w-8 h-8 bg-gradient-to-r from-bot-primary to-bot-accent rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-200">
+                        <div class="flex space-x-1">
+                            <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                            <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                            <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Input Area -->
+            <div class="bg-white border-t border-slate-200 p-4">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1">
+                        <div class="relative">
+                            <textarea 
+                                class="w-full p-3 pr-12 border border-slate-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-bot-primary focus:border-transparent transition-all"
+                                rows="1"
+                                placeholder="Type your message..."
+                                id="messageInput"
+                                data-implementation="Auto-resize on content, handle Enter key for send"
+                            ></textarea>
+                            <button 
+                                class="absolute right-3 bottom-3 text-slate-400 hover:text-bot-primary transition-colors"
+                                title="Attach file"
+                                data-event="click:attachFile"
+                            >
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Privacy Notice -->
+                        <div class="flex items-center mt-2 text-xs text-slate-500">
+                            <i class="fas fa-lock mr-1 text-green-500"></i>
+                            <span>Personal information automatically filtered</span>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        class="bg-gradient-to-r from-bot-primary to-bot-accent text-white p-3 rounded-full hover:shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        id="sendButton"
+                        data-event="click:sendMessage"
+                        data-implementation="Disable when empty, show loading state"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+        <!-- @END_COMPONENT: ChatArea -->
+
+    </div>
+    <!-- @END_COMPONENT: MainChatInterface -->
+
+    <!-- @COMPONENT: MobileOptimization (Hidden on desktop) -->
+    <div class="md:hidden fixed inset-0 bg-bg-light">
+        <div class="flex flex-col h-full">
+            <!-- Mobile Header -->
+            <div class="bg-gradient-to-r from-bot-primary to-bot-accent text-white p-4 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="font-bold">SassyBot</h1>
+                            <p class="text-white/80 text-sm">Online</p>
+                        </div>
+                    </div>
+                    <button class="text-white p-2" data-event="click:openMobileSettings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Messages -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                <!-- Mobile messages would be rendered here -->
+                <div class="text-center text-slate-500 text-sm" data-mock="true">
+                    Messages optimized for mobile viewing...
+                </div>
+            </div>
+
+            <!-- Mobile Input -->
+            <div class="bg-white border-t border-slate-200 p-4">
+                <div class="flex items-center space-x-3">
+                    <input 
+                        type="text" 
+                        class="flex-1 p-3 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-bot-primary"
+                        placeholder="Type a message..."
+                        data-mock="true"
+                    />
+                    <button class="bg-bot-primary text-white p-3 rounded-full">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: MobileOptimization -->
+
+    <script>
+        // TODO: Implement OpenAI API integration
+        // TODO: Add personal information filtering
+        // TODO: Implement real-time chat functionality
+        // TODO: Add message persistence
+        // TODO: Implement personality rule processing
+
+        (function() {
+            // Simple demo interactions
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const messagesContainer = document.getElementById('messagesContainer');
+            const typingIndicator = document.getElementById('typingIndicator');
+
+            // Auto-resize textarea
+            if (messageInput) {
+                messageInput.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = this.scrollHeight + 'px';
+                });
+
+                // Send on Enter
+                messageInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        // TODO: Implement actual send functionality
+                        console.log('Send message:', this.value);
+                    }
+                });
+            }
+
+            // Mock typing effect
+            function showTypingIndicator() {
+                if (typingIndicator) {
+                    typingIndicator.style.display = 'flex';
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }
+
+            function hideTypingIndicator() {
+                if (typingIndicator) {
+                    typingIndicator.style.display = 'none';
+                }
+            }
+
+            // Demo button interactions
+            if (sendButton) {
+                sendButton.addEventListener('click', function() {
+                    if (messageInput && messageInput.value.trim()) {
+                        showTypingIndicator();
+                        setTimeout(() => {
+                            hideTypingIndicator();
+                            // TODO: Add actual message to chat
+                        }, 1500);
+                    }
+                });
+            }
+
+            // Responsive design adjustments
+            function handleResize() {
+                const isMobile = window.innerWidth < 768;
+                // TODO: Implement responsive layout adjustments
+            }
+
+            window.addEventListener('resize', handleResize);
+            handleResize();
+        })();
+    </script>
+
+</body>
+</html>

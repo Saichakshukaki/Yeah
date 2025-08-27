@@ -1,0 +1,409 @@
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SarcBot - AI Chatbot with Attitude</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'chat-bg': '#212121',
+                        'chat-secondary': '#2F2F2F',
+                        'chat-ai': '#40414F',
+                        'chat-user': '#10A37F',
+                        'chat-text': '#ECECF1',
+                        'chat-text-secondary': '#C5C5D2',
+                        'chat-border': '#4D4D4F',
+                        'chat-accent': '#19C37D'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="h-full bg-chat-bg text-chat-text font-inter">
+    <!-- @COMPONENT: MainLayout -->
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- @COMPONENT: Sidebar -->
+        <div id="sidebar" class="w-64 bg-chat-secondary border-r border-chat-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 -translate-x-full fixed md:relative z-30 h-full">
+            <!-- @COMPONENT: SidebarHeader -->
+            <div class="p-4 border-b border-chat-border">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-xl font-semibold text-chat-text">SarcBot</h1>
+                    <button id="new-chat" class="p-2 rounded-lg bg-chat-accent hover:bg-opacity-80 transition-colors">
+                        <i class="fas fa-plus text-white text-sm"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-chat-text-secondary mt-1">AI with attitude</p>
+            </div>
+            <!-- @END_COMPONENT: SidebarHeader -->
+
+            <!-- @COMPONENT: ConversationHistory -->
+            <div class="flex-1 overflow-y-auto p-2">
+                <div class="space-y-2">
+                    <!-- @MAP: conversations.map(conversation => ( -->
+                    <div class="conversation-item p-3 rounded-lg bg-chat-bg hover:bg-opacity-80 cursor-pointer transition-colors border border-transparent hover:border-chat-border" data-mock="true">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-chat-text truncate" data-bind="conversation.title">Roast my coding skills</p>
+                                <p class="text-xs text-chat-text-secondary mt-1 truncate" data-bind="conversation.preview">Oh, you want me to review your code? This should be...</p>
+                            </div>
+                            <span class="text-xs text-chat-text-secondary ml-2" data-bind="conversation.time">2h</span>
+                        </div>
+                    </div>
+
+                    <div class="conversation-item p-3 rounded-lg bg-chat-accent bg-opacity-20 cursor-pointer transition-colors border border-chat-accent border-opacity-30" data-mock="true">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-chat-text truncate" data-bind="conversation.title">Help with my dating profile</p>
+                                <p class="text-xs text-chat-text-secondary mt-1 truncate" data-bind="conversation.preview">So you want dating advice from an AI? Bold strategy...</p>
+                            </div>
+                            <span class="text-xs text-chat-text-secondary ml-2" data-bind="conversation.time">5h</span>
+                        </div>
+                    </div>
+
+                    <div class="conversation-item p-3 rounded-lg bg-chat-bg hover:bg-opacity-80 cursor-pointer transition-colors border border-transparent hover:border-chat-border" data-mock="true">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-chat-text truncate" data-bind="conversation.title">Stock market predictions</p>
+                                <p class="text-xs text-chat-text-secondary mt-1 truncate" data-bind="conversation.preview">Oh great, another fortune teller wannabe...</p>
+                            </div>
+                            <span class="text-xs text-chat-text-secondary ml-2" data-bind="conversation.time">1d</span>
+                        </div>
+                    </div>
+
+                    <div class="conversation-item p-3 rounded-lg bg-chat-bg hover:bg-opacity-80 cursor-pointer transition-colors border border-transparent hover:border-chat-border" data-mock="true">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-chat-text truncate" data-bind="conversation.title">Recipe for disaster</p>
+                                <p class="text-xs text-chat-text-secondary mt-1 truncate" data-bind="conversation.preview">Literally or figuratively? Because I can help with both...</p>
+                            </div>
+                            <span class="text-xs text-chat-text-secondary ml-2" data-bind="conversation.time">2d</span>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+            </div>
+            <!-- @END_COMPONENT: ConversationHistory -->
+
+            <!-- @COMPONENT: SidebarFooter -->
+            <div class="p-4 border-t border-chat-border">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-chat-accent to-blue-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-white text-sm"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-chat-text truncate" data-mock="true" data-bind="user.name">Anonymous User</p>
+                        <p class="text-xs text-chat-text-secondary">Free Plan</p>
+                    </div>
+                    <button class="p-2 text-chat-text-secondary hover:text-chat-text transition-colors">
+                        <i class="fas fa-cog text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: SidebarFooter -->
+        </div>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- @COMPONENT: MainChatArea -->
+        <div class="flex-1 flex flex-col min-w-0">
+            
+            <!-- @COMPONENT: ChatHeader -->
+            <div class="bg-chat-secondary border-b border-chat-border p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <button id="sidebar-toggle" class="md:hidden p-2 text-chat-text-secondary hover:text-chat-text transition-colors">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-chat-text">SarcBot</h2>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <span class="text-xs text-chat-text-secondary">Online & Sassy</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <button class="p-2 text-chat-text-secondary hover:text-chat-text transition-colors" title="Search conversations">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="p-2 text-chat-text-secondary hover:text-chat-text transition-colors" title="Clear conversation">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: ChatHeader -->
+
+            <!-- @COMPONENT: ChatMessages -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-6" id="chat-messages">
+                
+                <!-- @COMPONENT: WelcomeMessage -->
+                <div class="max-w-3xl mx-auto text-center py-8" data-mock="true">
+                    <div class="w-16 h-16 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-robot text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold text-chat-text mb-2">Welcome to SarcBot</h3>
+                    <p class="text-chat-text-secondary mb-6">Your AI companion with a sense of humor (and a slight attitude problem). Ask me anything, but don't expect me to be nice about it.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                        <div class="p-4 bg-chat-secondary rounded-lg border border-chat-border hover:border-chat-accent transition-colors cursor-pointer" data-event="click:sendSampleQuestion">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-code text-chat-accent"></i>
+                                <div>
+                                    <p class="font-medium text-chat-text">Roast my code</p>
+                                    <p class="text-sm text-chat-text-secondary">Let me see your programming skills</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-chat-secondary rounded-lg border border-chat-border hover:border-chat-accent transition-colors cursor-pointer" data-event="click:sendSampleQuestion">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-search text-chat-accent"></i>
+                                <div>
+                                    <p class="font-medium text-chat-text">Search the web</p>
+                                    <p class="text-sm text-chat-text-secondary">Real-time data with sarcastic commentary</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-chat-secondary rounded-lg border border-chat-border hover:border-chat-accent transition-colors cursor-pointer" data-event="click:sendSampleQuestion">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-lightbulb text-chat-accent"></i>
+                                <div>
+                                    <p class="font-medium text-chat-text">Give me advice</p>
+                                    <p class="text-sm text-chat-text-secondary">Brutally honest life coaching</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-chat-secondary rounded-lg border border-chat-border hover:border-chat-accent transition-colors cursor-pointer" data-event="click:sendSampleQuestion">
+                            <div class="flex items-center space-x-3">
+                                <i class="fas fa-shield-alt text-chat-accent"></i>
+                                <div>
+                                    <p class="font-medium text-chat-text">Privacy protected</p>
+                                    <p class="text-sm text-chat-text-secondary">Auto-filters personal information</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: WelcomeMessage -->
+
+                <!-- @COMPONENT: UserMessage -->
+                <div class="flex justify-end" data-mock="true">
+                    <div class="max-w-xs lg:max-w-md">
+                        <div class="bg-chat-user text-white rounded-2xl rounded-br-md px-4 py-3">
+                            <p data-bind="message.content">Can you help me write a professional email to my boss?</p>
+                        </div>
+                        <div class="flex items-center justify-end space-x-2 mt-1">
+                            <span class="text-xs text-chat-text-secondary" data-bind="message.timestamp">2:34 PM</span>
+                            <i class="fas fa-check-double text-chat-accent text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: UserMessage -->
+
+                <!-- @COMPONENT: AIMessage -->
+                <div class="flex justify-start" data-mock="true">
+                    <div class="flex space-x-3 max-w-xs lg:max-w-2xl">
+                        <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="bg-chat-ai rounded-2xl rounded-bl-md px-4 py-3">
+                                <p data-bind="message.content">Oh, you want me to help you write a "professional" email? Let me guess - you're about to ask for a raise while your last project is still on fire? 🔥</p>
+                                <p class="mt-2" data-bind="message.content">But sure, I'll help. Just remember: confidence is key, even when you have no idea what you're doing. Here's a template that might save your career:</p>
+                                <div class="mt-3 p-3 bg-chat-bg rounded-lg border border-chat-border">
+                                    <p class="text-sm font-mono" data-bind="message.codeContent">"Dear [Boss's Name],<br><br>I hope this email finds you well and not questioning your hiring decisions too much..."</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <span class="text-xs text-chat-text-secondary" data-bind="message.timestamp">2:34 PM</span>
+                                <button class="text-xs text-chat-text-secondary hover:text-chat-text transition-colors">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                                <button class="text-xs text-chat-text-secondary hover:text-chat-text transition-colors">
+                                    <i class="fas fa-thumbs-up mr-1"></i>Like
+                                </button>
+                                <button class="text-xs text-chat-text-secondary hover:text-chat-text transition-colors">
+                                    <i class="fas fa-thumbs-down mr-1"></i>Dislike
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: AIMessage -->
+
+                <!-- @COMPONENT: TypingIndicator (Hidden by default) -->
+                <div class="flex justify-start hidden" id="typing-indicator">
+                    <div class="flex space-x-3 max-w-xs lg:max-w-md">
+                        <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="bg-chat-ai rounded-2xl rounded-bl-md px-4 py-3">
+                                <div class="flex space-x-1">
+                                    <div class="w-2 h-2 bg-chat-text-secondary rounded-full animate-bounce"></div>
+                                    <div class="w-2 h-2 bg-chat-text-secondary rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                    <div class="w-2 h-2 bg-chat-text-secondary rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <span class="text-xs text-chat-text-secondary">SarcBot is typing...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: TypingIndicator -->
+
+            </div>
+            <!-- @END_COMPONENT: ChatMessages -->
+
+            <!-- @COMPONENT: ChatInput -->
+            <div class="border-t border-chat-border bg-chat-bg p-4">
+                <div class="max-w-4xl mx-auto">
+                    <!-- @COMPONENT: InputWarning -->
+                    <div class="mb-3 p-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg flex items-center space-x-2" data-mock="true" style="display: none;" id="privacy-warning">
+                        <i class="fas fa-shield-alt text-yellow-500"></i>
+                        <p class="text-sm text-yellow-400">Personal information detected and filtered for your privacy.</p>
+                    </div>
+                    <!-- @END_COMPONENT: InputWarning -->
+
+                    <div class="flex space-x-3">
+                        <div class="flex-1 relative">
+                            <textarea 
+                                id="message-input"
+                                placeholder="Ask me anything... but brace yourself for the sass 💁‍♀️"
+                                class="w-full bg-chat-secondary border border-chat-border rounded-xl px-4 py-3 pr-12 text-chat-text placeholder-chat-text-secondary resize-none focus:outline-none focus:ring-2 focus:ring-chat-accent focus:border-transparent transition-all duration-200"
+                                rows="1"
+                                data-implementation="Auto-resize based on content, max 5 rows"
+                                data-event="keydown:handleKeyDown"
+                            ></textarea>
+                            
+                            <!-- @COMPONENT: AttachmentButton -->
+                            <button class="absolute right-3 bottom-3 p-1 text-chat-text-secondary hover:text-chat-text transition-colors" title="Attach file">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <!-- @END_COMPONENT: AttachmentButton -->
+                        </div>
+                        
+                        <!-- @COMPONENT: SendButton -->
+                        <button 
+                            id="send-button"
+                            class="bg-chat-accent hover:bg-opacity-80 text-white rounded-xl px-4 py-3 transition-all duration-200 flex items-center justify-center min-w-[3rem] disabled:opacity-50 disabled:cursor-not-allowed"
+                            data-event="click:sendMessage"
+                            data-implementation="Enable only when message is not empty"
+                        >
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                        <!-- @END_COMPONENT: SendButton -->
+                    </div>
+                    
+                    <div class="flex items-center justify-between mt-3 text-xs text-chat-text-secondary">
+                        <div class="flex items-center space-x-4">
+                            <span><i class="fas fa-shield-alt mr-1"></i>Privacy protected</span>
+                            <span><i class="fas fa-search mr-1"></i>Web search enabled</span>
+                            <span><i class="fas fa-smile mr-1"></i>Sarcasm mode: ON</span>
+                        </div>
+                        <span id="char-count" data-bind="messageLength">0/2000</span>
+                    </div>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: ChatInput -->
+
+        </div>
+        <!-- @END_COMPONENT: MainChatArea -->
+    </div>
+    <!-- @END_COMPONENT: MainLayout -->
+
+    <!-- @COMPONENT: MobileOverlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden hidden" data-event="click:closeSidebar"></div>
+    <!-- @END_COMPONENT: MobileOverlay -->
+
+    <script>
+        (function() {
+            // TODO: Implement proper state management, API integration, and business logic
+            
+            // Mobile sidebar toggle functionality
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            
+            function openSidebar() {
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+            }
+            
+            function closeSidebar() {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            }
+            
+            sidebarToggle?.addEventListener('click', openSidebar);
+            sidebarOverlay?.addEventListener('click', closeSidebar);
+            
+            // Message input auto-resize
+            const messageInput = document.getElementById('message-input');
+            const charCount = document.getElementById('char-count');
+            const sendButton = document.getElementById('send-button');
+            
+            function updateCharCount() {
+                const length = messageInput.value.length;
+                charCount.textContent = `${length}/2000`;
+                
+                // Update send button state
+                sendButton.disabled = length === 0;
+                
+                // Auto-resize textarea
+                messageInput.style.height = 'auto';
+                messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+            }
+            
+            messageInput?.addEventListener('input', updateCharCount);
+            messageInput?.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    // TODO: Send message functionality
+                    console.log('Send message:', messageInput.value);
+                }
+            });
+            
+            // Sample question handlers
+            document.querySelectorAll('[data-event="click:sendSampleQuestion"]').forEach(button => {
+                button.addEventListener('click', function() {
+                    // TODO: Implement sample question sending
+                    console.log('Sample question clicked');
+                });
+            });
+            
+            // Send button handler
+            sendButton?.addEventListener('click', function() {
+                if (!messageInput.value.trim()) return;
+                
+                // TODO: Implement message sending logic
+                console.log('Sending message:', messageInput.value);
+                
+                // Clear input
+                messageInput.value = '';
+                updateCharCount();
+            });
+            
+            // Initialize
+            updateCharCount();
+        })();
+    </script>
+</body>
+</html>

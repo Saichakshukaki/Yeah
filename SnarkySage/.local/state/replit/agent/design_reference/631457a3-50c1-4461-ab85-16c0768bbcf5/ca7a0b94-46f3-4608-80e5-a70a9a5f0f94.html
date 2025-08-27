@@ -1,0 +1,446 @@
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnarkyBot - AI Chatbot with Attitude</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#1a1a1a',
+                        'dark-secondary': '#2d2d2d',
+                        'dark-tertiary': '#374151',
+                        'chat-user': '#3b82f6',
+                        'chat-ai': '#6366f1',
+                        'text-primary': '#ffffff',
+                        'text-secondary': '#d1d5db',
+                        'text-muted': '#9ca3af'
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-dark-bg text-text-primary font-sans">
+    <!-- @COMPONENT: ChatContainer -->
+    <div class="flex flex-col h-screen max-w-4xl mx-auto">
+        
+        <!-- @COMPONENT: ChatHeader -->
+        <header class="flex items-center justify-between p-4 border-b border-dark-tertiary bg-dark-secondary">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-chat-ai to-chat-user rounded-full flex items-center justify-center">
+                    <i class="fas fa-robot text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold">SnarkyBot</h1>
+                    <p class="text-sm text-text-muted">AI with Attitude • Online</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <!-- @COMPONENT: ToolButton -->
+                <button data-event="click:clearChat" class="p-2 hover:bg-dark-tertiary rounded-lg transition-colors duration-200 group" title="Clear Chat">
+                    <i class="fas fa-trash text-text-muted group-hover:text-text-primary"></i>
+                </button>
+                
+                <button data-event="click:saveChat" class="p-2 hover:bg-dark-tertiary rounded-lg transition-colors duration-200 group" title="Save Chat">
+                    <i class="fas fa-download text-text-muted group-hover:text-text-primary"></i>
+                </button>
+                
+                <button data-event="click:toggleSettings" class="p-2 hover:bg-dark-tertiary rounded-lg transition-colors duration-200 group" title="Settings">
+                    <i class="fas fa-cog text-text-muted group-hover:text-text-primary"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- @COMPONENT: ChatMessages -->
+        <main class="flex-1 overflow-y-auto p-4 space-y-4" id="chatContainer">
+            
+            <!-- @COMPONENT: WelcomeMessage -->
+            <div class="flex items-start space-x-3 animate-fade-in">
+                <div class="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl">
+                    <p class="text-text-primary">Well, well, well... Another human who thinks they need an AI assistant. 🙄 I'm SnarkyBot, and I'm here to help you while being delightfully sarcastic about it. Try not to bore me to death with your questions.</p>
+                    <span class="text-xs text-text-muted mt-2 block">Just now</span>
+                </div>
+            </div>
+
+            <!-- @MAP: messages.map(message => ( -->
+            <!-- Sample User Message -->
+            <div class="flex items-start space-x-3 justify-end">
+                <div class="bg-chat-user rounded-2xl rounded-tr-md p-4 max-w-2xl">
+                    <p class="text-white" data-bind="message.content">What's the weather like today?</p>
+                    <span class="text-xs text-blue-200 mt-2 block">2:34 PM</span>
+                </div>
+                <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+            </div>
+
+            <!-- Sample AI Response -->
+            <div class="flex items-start space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl relative group">
+                    <p class="text-text-primary" data-bind="message.content">Oh, you mean you can't just... look outside? Revolutionary concept, I know. 🌤️ It's partly cloudy with a high of 72°F. Perfect weather for someone to ask an AI what they could see with their own eyes.</p>
+                    <span class="text-xs text-text-muted mt-2 block">2:34 PM</span>
+                    
+                    <!-- @COMPONENT: MessageActions -->
+                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                        <button data-event="click:copyMessage" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Copy">
+                            <i class="fas fa-copy text-xs"></i>
+                        </button>
+                        <button data-event="click:regenerateResponse" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Regenerate">
+                            <i class="fas fa-redo text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Another User Message -->
+            <div class="flex items-start space-x-3 justify-end">
+                <div class="bg-chat-user rounded-2xl rounded-tr-md p-4 max-w-2xl">
+                    <p class="text-white">Can you help me write a professional email?</p>
+                    <span class="text-xs text-blue-200 mt-2 block">2:35 PM</span>
+                </div>
+                <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+            </div>
+
+            <!-- AI Response with Typing Indicator -->
+            <div class="flex items-start space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl relative group">
+                    <p class="text-text-primary">*sigh* Let me guess, you want to sound "professional" but you're probably asking someone to do something they definitely don't want to do? 📧 Sure, I'll help you craft something that doesn't make you sound like a robot... unlike me. What's the email about?</p>
+                    <span class="text-xs text-text-muted mt-2 block">2:35 PM</span>
+                    
+                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                        <button data-event="click:copyMessage" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Copy">
+                            <i class="fas fa-copy text-xs"></i>
+                        </button>
+                        <button data-event="click:regenerateResponse" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Regenerate">
+                            <i class="fas fa-redo text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- @COMPONENT: TypingIndicator -->
+            <div id="typingIndicator" class="flex items-start space-x-3 hidden">
+                <div class="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="bg-dark-secondary rounded-2xl rounded-tl-md p-4">
+                    <div class="flex space-x-1">
+                        <div class="w-2 h-2 bg-text-muted rounded-full animate-bounce"></div>
+                        <div class="w-2 h-2 bg-text-muted rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                        <div class="w-2 h-2 bg-text-muted rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- @END_MAP )) -->
+
+        </main>
+
+        <!-- @COMPONENT: ChatInput -->
+        <footer class="p-4 border-t border-dark-tertiary bg-dark-secondary">
+            <div class="flex items-end space-x-3">
+                <div class="flex-1 relative">
+                    <!-- @STATE: messageInput:string = "" -->
+                    <textarea 
+                        id="messageInput"
+                        data-bind="messageInput"
+                        placeholder="Type your message... (try not to make it boring)"
+                        class="w-full bg-dark-bg border border-dark-tertiary rounded-2xl px-4 py-3 pr-12 text-text-primary placeholder-text-muted resize-none focus:outline-none focus:ring-2 focus:ring-chat-user focus:border-transparent transition-all duration-200"
+                        rows="1"
+                        style="min-height: 44px; max-height: 120px;"
+                        data-implementation="Auto-resize based on content, max 3 lines"
+                    ></textarea>
+                    
+                    <!-- @COMPONENT: SendButton -->
+                    <button 
+                        id="sendButton"
+                        data-event="click:sendMessage"
+                        class="absolute right-2 bottom-2 w-8 h-8 bg-chat-user hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-all duration-200 transform hover:scale-105 disabled:transform-none"
+                        disabled
+                        data-implementation="Enable when messageInput.length > 0"
+                    >
+                        <i class="fas fa-paper-plane text-white text-sm"></i>
+                    </button>
+                </div>
+                
+                <!-- @COMPONENT: AdditionalTools -->
+                <div class="flex space-x-2">
+                    <button 
+                        data-event="click:attachFile"
+                        class="p-2 hover:bg-dark-tertiary rounded-lg transition-colors duration-200 group"
+                        title="Attach File"
+                        data-implementation="File upload for context (PDFs, docs)"
+                    >
+                        <i class="fas fa-paperclip text-text-muted group-hover:text-text-primary"></i>
+                    </button>
+                    
+                    <button 
+                        data-event="click:voiceInput"
+                        class="p-2 hover:bg-dark-tertiary rounded-lg transition-colors duration-200 group"
+                        title="Voice Input"
+                        data-implementation="Speech-to-text functionality"
+                    >
+                        <i class="fas fa-microphone text-text-muted group-hover:text-text-primary"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- @COMPONENT: ChatFooter -->
+            <div class="flex items-center justify-between mt-3 text-xs text-text-muted">
+                <div class="flex items-center space-x-4">
+                    <span data-implementation="Show real token/character count">Characters: <span data-bind="messageInput.length">0</span>/2000</span>
+                    <span class="flex items-center space-x-1">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>AI Online</span>
+                    </span>
+                </div>
+                <div class="text-right">
+                    <span>Press Enter to send • Shift+Enter for new line</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <!-- @END_COMPONENT: ChatContainer -->
+
+    <!-- @COMPONENT: ErrorToast (Hidden by default) -->
+    <div id="errorToast" class="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 hidden">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span data-bind="errorMessage">Oops! Even I can't fix that mess. Try again, genius.</span>
+        </div>
+    </div>
+
+    <!-- @COMPONENT: SuccessToast (Hidden by default) -->
+    <div id="successToast" class="fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 hidden">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-check-circle"></i>
+            <span data-bind="successMessage">Copied! You're welcome for doing the work for you.</span>
+        </div>
+    </div>
+
+    <script>
+        // TODO: Implement OpenAI API integration with custom personality prompts
+        // TODO: Implement web search integration for real-time data
+        // TODO: Implement personal information filtering
+        // TODO: Implement chat persistence and saving functionality
+
+        (function() {
+            // Chat UI Management
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const chatContainer = document.getElementById('chatContainer');
+            const typingIndicator = document.getElementById('typingIndicator');
+
+            // Auto-resize textarea
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                
+                // Enable/disable send button
+                sendButton.disabled = this.value.trim().length === 0;
+            });
+
+            // Send message on Enter (without Shift)
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendButton.disabled) {
+                        sendMessage();
+                    }
+                }
+            });
+
+            // Send button click handler
+            sendButton.addEventListener('click', sendMessage);
+
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                if (!message) return;
+
+                // Add user message to chat
+                addMessage(message, 'user');
+                
+                // Clear input
+                messageInput.value = '';
+                messageInput.style.height = 'auto';
+                sendButton.disabled = true;
+
+                // Show typing indicator
+                showTypingIndicator();
+
+                // TODO: Process message with AI and get response
+                // Simulate AI response delay
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const aiResponse = generateSarcasticResponse(message);
+                    addMessage(aiResponse, 'ai');
+                }, 1000 + Math.random() * 2000);
+            }
+
+            function addMessage(content, sender) {
+                const messageElement = document.createElement('div');
+                const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                if (sender === 'user') {
+                    messageElement.innerHTML = `
+                        <div class="flex items-start space-x-3 justify-end">
+                            <div class="bg-chat-user rounded-2xl rounded-tr-md p-4 max-w-2xl">
+                                <p class="text-white">${escapeHtml(content)}</p>
+                                <span class="text-xs text-blue-200 mt-2 block">${timestamp}</span>
+                            </div>
+                            <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-user text-white text-sm"></i>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    messageElement.innerHTML = `
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-r from-chat-ai to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-robot text-white text-sm"></i>
+                            </div>
+                            <div class="bg-dark-secondary rounded-2xl rounded-tl-md p-4 max-w-2xl relative group">
+                                <p class="text-text-primary">${escapeHtml(content)}</p>
+                                <span class="text-xs text-text-muted mt-2 block">${timestamp}</span>
+                                
+                                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                                    <button onclick="copyMessage(this)" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Copy">
+                                        <i class="fas fa-copy text-xs"></i>
+                                    </button>
+                                    <button onclick="regenerateMessage(this)" class="p-1 hover:bg-dark-tertiary rounded text-text-muted hover:text-text-primary" title="Regenerate">
+                                        <i class="fas fa-redo text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                chatContainer.appendChild(messageElement);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            function showTypingIndicator() {
+                typingIndicator.classList.remove('hidden');
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            function hideTypingIndicator() {
+                typingIndicator.classList.add('hidden');
+            }
+
+            function generateSarcasticResponse(userMessage) {
+                // TODO: Replace with actual OpenAI API call with sarcastic personality
+                const responses = [
+                    "Oh wow, another groundbreaking question. Let me consult my vast database of obvious answers... 🙄",
+                    "Fascinating. You've managed to ask something that Google could have answered in 0.3 seconds.",
+                    "Well, aren't you just full of surprises. And by surprises, I mean predictable questions.",
+                    "Let me guess, you want me to do your thinking for you? How refreshingly original.",
+                    "Here's a wild idea: try using that magnificent brain of yours first, then come back to me.",
+                ];
+                return responses[Math.floor(Math.random() * responses.length)];
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Global functions for message actions
+            window.copyMessage = function(button) {
+                const messageText = button.closest('.group').querySelector('p').textContent;
+                navigator.clipboard.writeText(messageText).then(() => {
+                    showToast('Copied! You\'re welcome for doing the work for you.', 'success');
+                });
+            };
+
+            window.regenerateMessage = function(button) {
+                // TODO: Implement message regeneration
+                showToast('Hold your horses! Regeneration coming soon...', 'error');
+            };
+
+            function showToast(message, type) {
+                const toast = document.getElementById(type + 'Toast');
+                const messageSpan = toast.querySelector('span[data-bind]');
+                messageSpan.textContent = message;
+                
+                toast.classList.remove('hidden', 'translate-x-full');
+                
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        toast.classList.add('hidden');
+                    }, 300);
+                }, 3000);
+            }
+
+            // Header button handlers
+            document.querySelector('[data-event="click:clearChat"]').addEventListener('click', function() {
+                // TODO: Implement chat clearing with confirmation
+                if (confirm('Are you sure you want to clear the chat? (Not that it was particularly riveting...)')) {
+                    // Clear messages except welcome message
+                    const messages = chatContainer.querySelectorAll('.flex:not(:first-child)');
+                    messages.forEach(msg => msg.remove());
+                }
+            });
+
+            document.querySelector('[data-event="click:saveChat"]').addEventListener('click', function() {
+                // TODO: Implement chat saving functionality
+                showToast('Chat saved! Because apparently this conversation is worth preserving...', 'success');
+            });
+
+        })();
+    </script>
+
+    <style>
+        /* Custom animations */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+
+        /* Scrollbar styling for webkit browsers */
+        #chatContainer::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #chatContainer::-webkit-scrollbar-track {
+            background: #2d2d2d;
+        }
+        
+        #chatContainer::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        
+        #chatContainer::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</body>
+</html>
